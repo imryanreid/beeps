@@ -20,8 +20,16 @@ import { FieldLabel } from "./shared/components/Label"
 import { useTheme } from "./shared/theme"
 import Preview from "./components/Preview"
 import BeepsExport from "./components/ExportPanel"
+import SoundList from "./components/SoundList"
 import { PRESETS, PRESET_IDS, type PresetId } from "./lib/presets"
-import { DEFAULT_CONFIG, resolve, type SetConfig } from "./lib/resolve"
+import type { SoundId } from "./lib/sounds"
+import {
+  DEFAULT_CONFIG,
+  applyEdit,
+  resolve,
+  type SetConfig,
+  type SoundDelta,
+} from "./lib/resolve"
 import { decodeWarnings, encodeConfig, resolveConfig } from "./lib/params"
 import { useAudio } from "./lib/useAudio"
 
@@ -64,6 +72,12 @@ export default function App() {
     // authored against different derived values and keeping them would produce
     // a set that is neither the old one nor the new preset.
     setConfig({ presetId, deltas: {} })
+  }, [])
+
+  // Every edit goes through applyEdit, so pair mirroring is never something a
+  // caller has to remember. It is the only write path into `deltas`.
+  const editSound = useCallback((id: SoundId, patch: SoundDelta) => {
+    setConfig((current) => applyEdit(current, id, patch))
   }, [])
 
   const shareUrl =
@@ -141,6 +155,8 @@ export default function App() {
         started={audio.started}
         muted={audio.muted}
       />
+
+      <SoundList set={audio.set} config={config} onEdit={editSound} onPlay={audio.play} />
     </ToolShell>
   )
 }

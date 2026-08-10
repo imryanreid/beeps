@@ -38,29 +38,33 @@
 
 ### `src/lib/` — the maths. Pure, framework-free, tested in Node.
 
-_Not written yet. Planned shape, from [`SPEC.md` §15](SPEC.md):_
-
-| File          | What it will do                                                                  |
-| ------------- | -------------------------------------------------------------------------------- |
-| `sounds.ts`   | The eleven-sound set: intervals, pairs, tiers.                                   |
-| `presets.ts`  | Soft, Crisp and Minimal as declarative data — no code branches.                  |
-| `resolve.ts`  | Preset + deltas → a complete `SoundSet`. The single source every consumer reads. |
-| `loudness.ts` | A-weighted RMS, peak check, and the per-sound normalized gain.                   |
-| `wav.ts`      | The RIFF/PCM encoder. Takes channels, sample rate and bit depth.                 |
-| `params.ts`   | The URL codec. Readable short keys, deltas only, no base64.                      |
-| `export.ts`   | Every export format, including the agent markdown.                               |
-| `agent.ts`    | The machine-readable payload — JSON and text from one source.                    |
+| File          | What it does                                                                                                      |
+| ------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `sounds.ts`   | Every type, and the eleven sounds as recipes: intervals, pairs, tiers, and the when/when-not text agents receive. |
+| `presets.ts`  | Soft, Crisp and Minimal as declarative data. Nothing anywhere branches on a preset id.                            |
+| `resolve.ts`  | Preset + deltas → a complete `SoundSet`. The single source every consumer reads.                                  |
+| `loudness.ts` | The A-weighting curve, RMS, peak, and the per-sound normalized gain.                                              |
+| `wav.ts`      | The RIFF/PCM encoder and the data-URI wrapper.                                                                    |
+| `render.ts`   | Offline rendering via `OfflineAudioContext` — the only module here that needs a browser.                          |
+| `params.ts`   | The URL codec. Readable short keys, deltas only, no base64.                                                       |
+| `export.ts`   | Every export format, including the agent markdown.                                                                |
+| `useAudio.ts` | The one place the app owns an AudioContext, a player and the gesture gate.                                        |
+| `*.test.ts`   | 104 tests. `runtime.test.ts` uses a recording mock of Web Audio, because those failures are silent.               |
 
 ### `src/runtime/` — the synthesis runtime
 
-| File       | What it will do                                                                                                                                 |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `beeps.js` | Plain JS, no TypeScript syntax, no imports. The app runs it; the JS export ships its source verbatim, so there is only ever one implementation. |
+| File         | What it does                                                                                                                                               |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `beeps.js`   | Plain JS, no TypeScript syntax, no imports. The app runs it; the JS export ships its source verbatim via `?raw`, so there is only ever one implementation. |
+| `beeps.d.ts` | Types for the above, so the rest of the app still gets checked. Not shipped to users.                                                                      |
 
 ### `src/components/` — rendering only, no maths
 
-_Not written yet._ The editor, the six preview surfaces, the rapid-fire control,
-the spectrum rail and the export panel wiring.
+| File              | What it does                                                                                      |
+| ----------------- | ------------------------------------------------------------------------------------------------- |
+| `Preview.tsx`     | Six real UI surfaces, the rapid-fire test and the sequence player. Never an abstract play button. |
+| `SoundList.tsx`   | The eleven rows, the spectrum rail, the duration warnings, and the per-sound editor.              |
+| `ExportPanel.tsx` | This tool's six formats, handed to the family's shared panel.                                     |
 
 ### `src/shared/` — the family layer
 
