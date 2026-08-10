@@ -1,0 +1,11 @@
+/* ==============================================
+   BEEPS STYLESHEET
+   The shared family foundation, plus anything that
+   is only about this tool.
+
+   Everything visual comes from shared/tokens.css —
+   the fonts, the five colour tokens, dark mode, and
+   the reduced-motion block. Rules below this import
+   are for surfaces no other tool has.
+   ============================================== */
+@import "./shared/tokens.css";

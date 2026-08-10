@@ -1,0 +1,29 @@
+# Dependencies & build output
+node_modules/
+dist/
+build/
+.cache/
+.vite/
+*.tsbuildinfo
+vite.config.*.timestamp-*
+
+# Secrets — never commit these
+.env*
+
+# Vercel CLI project link
+.vercel
+
+# Logs
+logs/
+*.log
+*-debug.log*
+
+# macOS
+.DS_Store
+
+# Scratch
+.claude-replay.*
+.tmp-*
+
+# Local dev-server config for the Claude Code browser pane.
+.claude/

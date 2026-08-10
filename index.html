@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Beeps · UI sounds your agent can actually specify</title>
+    <meta
+      name="description"
+      content="Generate a coherent set of interface sounds — tap, toggle, success, error, notification and more — synthesized in the browser with Web Audio. No sample library, no hosted audio, no licensing. Exports as WAV, an inline data URI, a zero-dependency synthesis function, JSON, or markdown that tells a coding agent when to play what."
+    />
+    <meta name="robots" content="index, follow" />
+
+    <!--
+      No canonical, og: or JSON-LD block yet. Those name a domain, and
+      beeps.studio is not registered — a canonical tag pointing at a host that
+      does not resolve is worse than none, because it tells a crawler to prefer
+      a URL that 404s. They land with the domain, together, in one commit.
+    -->
+
+    <script>
+      // Set the theme before first paint so a dark-mode visitor never sees a
+      // white flash. Mirrors getInitialTheme() in src/shared/theme.ts — kept
+      // inline deliberately: a module import would run after paint, which is
+      // the whole thing this avoids.
+      try {
+        const stored = localStorage.getItem("theme")
+        const dark =
+          stored === "dark" ||
+          (!stored && window.matchMedia("(prefers-color-scheme: dark)").matches)
+        if (dark) document.documentElement.classList.add("dark")
+      } catch {
+        /* Private mode can throw on localStorage. Light is a fine fallback. */
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
