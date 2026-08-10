@@ -15,14 +15,14 @@ import IconButton from "./shared/components/IconButton"
 import ResetButton from "./shared/components/ResetButton"
 import ShareButton from "./shared/components/ShareButton"
 import ExportModal from "./shared/components/ExportModal"
-import Segmented from "./shared/components/Segmented"
 import { FieldLabel } from "./shared/components/Label"
 import { useTheme } from "./shared/theme"
 import Preview from "./components/Preview"
 import BeepsExport from "./components/ExportPanel"
 import SoundList from "./components/SoundList"
 import AgentData from "./components/AgentData"
-import { PRESETS, PRESET_IDS, type PresetId } from "./lib/presets"
+import PresetSelect from "./components/PresetSelect"
+import { PRESETS, type PresetId } from "./lib/presets"
 import type { SoundId } from "./lib/sounds"
 import {
   DEFAULT_CONFIG,
@@ -67,6 +67,9 @@ export default function App() {
   }, [config])
 
   const preset = PRESETS[config.presetId]
+  // A set with any edit is no longer the preset — it is Custom, and switching
+  // back would throw those edits away. PresetSelect asks before it does.
+  const editCount = Object.keys(config.deltas).length
 
   const setPreset = useCallback((presetId: PresetId) => {
     // A preset applies to the whole set. Deltas are cleared, because they were
@@ -124,20 +127,24 @@ export default function App() {
       controls={
         <div className="flex flex-wrap items-end gap-x-8 gap-y-6">
           <div>
-            <FieldLabel>Character</FieldLabel>
-            <Segmented
+            <FieldLabel>Preset</FieldLabel>
+            <PresetSelect
               value={config.presetId}
+              isCustom={editCount > 0}
+              editCount={editCount}
               onChange={setPreset}
-              layoutId="preset-pill"
-              ariaLabel="Character preset"
-              options={PRESET_IDS.map((id) => ({
-                id,
-                label: PRESETS[id].name,
-                title: PRESETS[id].blurb,
-              }))}
             />
           </div>
-          <p className="text-ash max-w-[46ch] pb-2 text-sm leading-relaxed">{preset.blurb}</p>
+          <p className="text-ash max-w-[46ch] pb-2 text-sm leading-relaxed">
+            {editCount > 0 ? (
+              <>
+                {editCount} sound{editCount === 1 ? "" : "s"} edited on top of{" "}
+                <span className="text-ink">{preset.name}</span>. {preset.blurb}
+              </>
+            ) : (
+              preset.blurb
+            )}
+          </p>
         </div>
       }
       overlay={

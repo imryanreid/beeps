@@ -27,6 +27,7 @@ import {
   type SoundDelta,
 } from "../lib/resolve"
 import { partnerOf, specFor, type Sound, type SoundId, type SoundSet } from "../lib/sounds"
+import SoundPlot from "./SoundPlot"
 
 export default function SoundList({
   set,
@@ -40,6 +41,9 @@ export default function SoundList({
   onPlay: (id: SoundId) => void
 }) {
   const [openId, setOpenId] = useState<SoundId | null>(null)
+  // One setting for the whole list, not per row — flipping it back on for every
+  // sound you open would be its own small annoyance.
+  const [showLabels, setShowLabels] = useState(false)
 
   return (
     <section className="mb-12">
@@ -55,9 +59,7 @@ export default function SoundList({
         frequency, so editing one keeps the rest in tune with it.
       </p>
 
-      <SpectrumRail set={set} />
-
-      <ul className="border-line divide-line mt-6 divide-y border-t border-b">
+      <ul className="border-line divide-line divide-y border-t border-b">
         {set.sounds.map((sound) => (
           <SoundRow
             key={sound.id}
@@ -65,12 +67,19 @@ export default function SoundList({
             baseHz={set.baseHz}
             edited={Boolean(config.deltas[sound.id])}
             open={openId === sound.id}
+            showLabels={showLabels}
+            onToggleLabels={() => setShowLabels((v) => !v)}
             onToggle={() => setOpenId(openId === sound.id ? null : sound.id)}
             onPlay={() => onPlay(sound.id)}
             onEdit={(patch) => onEdit(sound.id, patch)}
           />
         ))}
       </ul>
+
+      {/* Below the sounds: this is a summary OF the list, so it reads after it. */}
+      <div className="mt-8">
+        <SpectrumRail set={set} />
+      </div>
     </section>
   )
 }
@@ -169,6 +178,8 @@ function SoundRow({
   baseHz,
   edited,
   open,
+  showLabels,
+  onToggleLabels,
   onToggle,
   onPlay,
   onEdit,
@@ -177,6 +188,8 @@ function SoundRow({
   baseHz: number
   edited: boolean
   open: boolean
+  showLabels: boolean
+  onToggleLabels: () => void
   onToggle: () => void
   onPlay: () => void
   onEdit: (patch: SoundDelta) => void
@@ -254,7 +267,16 @@ function SoundRow({
         </button>
       </div>
 
-      {open && <Editor sound={sound} spec={spec} baseHz={baseHz} onEdit={onEdit} />}
+      {open && (
+        <Editor
+          sound={sound}
+          spec={spec}
+          baseHz={baseHz}
+          showLabels={showLabels}
+          onToggleLabels={onToggleLabels}
+          onEdit={onEdit}
+        />
+      )}
     </li>
   )
 }
@@ -267,11 +289,15 @@ function Editor({
   sound,
   spec,
   baseHz,
+  showLabels,
+  onToggleLabels,
   onEdit,
 }: {
   sound: Sound
   spec: ReturnType<typeof specFor>
   baseHz: number
+  showLabels: boolean
+  onToggleLabels: () => void
   onEdit: (patch: SoundDelta) => void
 }) {
   const osc = sound.voices.find((v) => v.kind === "osc")
@@ -279,209 +305,222 @@ function Editor({
   const partner = partnerOf(sound.id)
   const mirrored = partner?.kind === "inversion"
   const total = soundingMs(sound)
+  const over = total > DURATION_WARN_MS
 
   return (
     <div className="bg-ink/[0.02] border-line -mx-4 border-t px-4 py-5 sm:mx-0 sm:px-5">
-      <p className="text-ash mb-5 max-w-[70ch] text-sm leading-relaxed">
-        <span className="text-ink font-medium">Plays when:</span> {spec.when}{" "}
-        <span className="text-ink font-medium">Not when:</span> {spec.whenNot}
-      </p>
-
-      {/*
-        Pitch first and largest. The downward sweep is the most important
-        parameter here — direction is what makes a sound read as a confirmation
-        or a dismissal — so it does not sit in an accordion under the timings.
-      */}
-      <Group
-        title="Pitch"
-        help="Where the sound starts, where it lands, and how fast it gets there. A falling sweep reads as done or dismissed; a rising one as starting or sent."
-      >
-        <div className="border-line bg-paper mb-4 rounded-md border px-3 py-2">
-          <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
-            <span className="font-mono text-[11px]">
-              {intervalLabel(osc.pitch.startHz, osc.pitch.endHz)}
-            </span>
-            <span className="text-ash font-mono text-[10px]">
-              lands {semitoneLabel(osc.pitch.endHz, baseHz)} from the {Math.round(baseHz)} Hz
-              base
-            </span>
-          </div>
-          <Sweep startHz={osc.pitch.startHz} endHz={osc.pitch.endHz} />
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Field
-            label="Starts at"
-            unit="Hz"
-            value={osc.pitch.startHz}
-            min={200}
-            max={2000}
-            step={5}
-            onChange={(v) => onEdit({ startHz: v })}
-            hint="Higher reads as lighter and more urgent."
-          />
-          <Field
-            label="Ends at"
-            unit="Hz"
-            value={osc.pitch.endHz}
-            min={200}
-            max={2000}
-            step={5}
-            onChange={(v) => onEdit({ endHz: v })}
-            hint="Where it settles. This is the note you actually remember."
-          />
-          <Field
-            label="Glide"
-            unit="ms"
-            value={osc.pitch.sweepMs}
-            min={1}
-            max={300}
-            step={1}
-            onChange={(v) => onEdit({ sweepMs: v })}
-            hint="How long the pitch takes to travel. Short is a chirp; long is a swoop."
-          />
-        </div>
-
-        {mirrored && (
-          <p className="text-ash mt-3 text-[11px] leading-relaxed">
-            Paired with <span className="text-ink font-medium">{partner.id}</span> — changing
-            either pitch mirrors the other, so the two stay exact opposites.
-          </p>
-        )}
-      </Group>
-
-      <Group
-        title="Shape"
-        help="How the volume rises and falls. This is what separates a click from a beep — far more than pitch does."
-      >
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Field
-            label="Attack"
-            unit="ms"
-            value={osc.env.attackMs}
-            min={LIMITS.attackMs[0]}
-            max={60}
-            step={0.5}
-            dp={1}
-            onChange={(v) => onEdit({ attackMs: v })}
-            hint="How fast it starts. Under 10ms is a click; over 20ms is a beep."
-          />
-          <Field
-            label="Decay"
-            unit="ms"
-            value={osc.env.decayMs}
-            min={1}
-            max={400}
-            step={1}
-            onChange={(v) => onEdit({ decayMs: v })}
-            hint="How fast it drops away after the peak. Most of the length lives here."
-          />
-          <Field
-            label="Release"
-            unit="ms"
-            value={osc.env.releaseMs}
-            min={1}
-            max={300}
-            step={1}
-            onChange={(v) => onEdit({ releaseMs: v })}
-            hint="The tail. Long tails pile up when a sound repeats — test with rapid-fire."
-          />
-        </div>
-        <p
-          className={cn(
-            "mt-3 text-[11px] leading-relaxed",
-            total > DURATION_WARN_MS ? "text-amber-500" : "text-ash",
-          )}
-        >
-          {total > DURATION_WARN_MS && (
-            <Warning size={11} weight="fill" className="mr-1 inline" />
-          )}
-          Total length {Math.round(total)}ms — attack + decay + release.{" "}
-          {total > DURATION_WARN_MS
-            ? `Past ${DURATION_WARN_MS}ms a UI sound starts overlapping whatever the user does next, which reads as the app being slow.`
-            : `The sound is as long as its shape; there is no separate duration to fight with.`}
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <p className="text-ash max-w-[70ch] text-sm leading-relaxed">
+          <span className="text-ink font-medium">Plays when:</span> {spec.when}{" "}
+          <span className="text-ink font-medium">Not when:</span> {spec.whenNot}
         </p>
-      </Group>
+        {/*
+          Off by default. With every control explaining itself the panel was a
+          wall of prose you had to read past to reach the sliders — useful once,
+          noise every time after.
+        */}
+        <button
+          type="button"
+          onClick={onToggleLabels}
+          aria-pressed={showLabels}
+          className="border-line hover:border-ink/30 text-ash hover:text-ink shrink-0 rounded border px-2 py-1 font-mono text-[10px] tracking-[0.14em] uppercase transition-colors"
+        >
+          labels {showLabels ? "on" : "off"}
+        </button>
+      </div>
 
-      <Group
-        title="Tone"
-        help="A filter over the whole sound. Use it to take the edge off, or to thin something out."
-        last
-      >
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field
-            label="Brightness"
-            unit="Hz"
-            value={sound.filter.cutoffHz}
-            min={200}
-            max={12000}
-            step={50}
-            onChange={(v) => onEdit({ cutoffHz: v })}
-            hint="Lower is duller and warmer. Higher is thinner and more present."
-          />
-          <Field
-            label="Resonance"
-            unit=""
-            value={sound.filter.q}
-            min={0.1}
-            max={20}
-            step={0.1}
-            dp={1}
-            onChange={(v) => onEdit({ q: v })}
-            hint={
-              sound.filter.q > 12
-                ? "Above 12 it rings on after the sound should have stopped."
-                : "Emphasis right at the brightness point. A little adds focus."
-            }
-          />
+      <div className="grid gap-x-8 gap-y-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="min-w-0">
+          <Group
+            title="Pitch"
+            help="Where the sound starts, where it lands, and how fast it gets there. A falling sweep reads as done or dismissed; a rising one as starting or sent."
+            showLabels={showLabels}
+          >
+            <div className="grid gap-x-6 gap-y-4 sm:grid-cols-3">
+              <Field
+                label="Starts at"
+                unit="Hz"
+                value={osc.pitch.startHz}
+                min={200}
+                max={2000}
+                step={5}
+                showLabels={showLabels}
+                onChange={(v) => onEdit({ startHz: v })}
+                hint="Higher reads as lighter and more urgent."
+              />
+              <Field
+                label="Ends at"
+                unit="Hz"
+                value={osc.pitch.endHz}
+                min={200}
+                max={2000}
+                step={5}
+                showLabels={showLabels}
+                onChange={(v) => onEdit({ endHz: v })}
+                hint="Where it settles. This is the note you actually remember."
+              />
+              <Field
+                label="Glide"
+                unit="ms"
+                value={osc.pitch.sweepMs}
+                min={1}
+                max={300}
+                step={1}
+                showLabels={showLabels}
+                onChange={(v) => onEdit({ sweepMs: v })}
+                hint="How long the pitch takes to travel. Short is a chirp; long is a swoop."
+              />
+            </div>
+            {mirrored && (
+              <p className="text-ash mt-3 text-[11px] leading-relaxed">
+                Paired with <span className="text-ink font-medium">{partner.id}</span> — editing
+                either pitch mirrors the other.
+              </p>
+            )}
+          </Group>
+
+          <Group
+            title="Shape"
+            help="How the volume rises and falls. This is what separates a click from a beep — far more than pitch does."
+            showLabels={showLabels}
+          >
+            <div className="grid gap-x-6 gap-y-4 sm:grid-cols-3">
+              <Field
+                label="Attack"
+                unit="ms"
+                value={osc.env.attackMs}
+                min={LIMITS.attackMs[0]}
+                max={60}
+                step={0.5}
+                dp={1}
+                showLabels={showLabels}
+                onChange={(v) => onEdit({ attackMs: v })}
+                hint="How fast it starts. Under 10ms is a click; over 20ms is a beep."
+              />
+              <Field
+                label="Decay"
+                unit="ms"
+                value={osc.env.decayMs}
+                min={1}
+                max={400}
+                step={1}
+                showLabels={showLabels}
+                onChange={(v) => onEdit({ decayMs: v })}
+                hint="How fast it drops away after the peak. Most of the length lives here."
+              />
+              <Field
+                label="Release"
+                unit="ms"
+                value={osc.env.releaseMs}
+                min={1}
+                max={300}
+                step={1}
+                showLabels={showLabels}
+                onChange={(v) => onEdit({ releaseMs: v })}
+                hint="The tail. Long tails pile up when a sound repeats — test with rapid-fire."
+              />
+            </div>
+          </Group>
+
+          <Group
+            title="Tone"
+            help="A filter over the whole sound. Use it to take the edge off, or to thin something out."
+            showLabels={showLabels}
+            last
+          >
+            <div className="grid gap-x-6 gap-y-4 sm:grid-cols-3">
+              <Field
+                label="Brightness"
+                unit="Hz"
+                value={sound.filter.cutoffHz}
+                min={200}
+                max={12000}
+                step={50}
+                showLabels={showLabels}
+                onChange={(v) => onEdit({ cutoffHz: v })}
+                hint="Lower is duller and warmer. Higher is thinner and more present."
+              />
+              <Field
+                label="Resonance"
+                unit=""
+                value={sound.filter.q}
+                min={0.1}
+                max={20}
+                step={0.1}
+                dp={1}
+                showLabels={showLabels}
+                onChange={(v) => onEdit({ q: v })}
+                hint={
+                  sound.filter.q > 12
+                    ? "Above 12 it rings on after the sound should have stopped."
+                    : "Emphasis right at the brightness point. A little adds focus."
+                }
+              />
+            </div>
+          </Group>
         </div>
-      </Group>
+
+        {/* The plot, on its own side. It reads everything the sliders set. */}
+        <div className="min-w-0">
+          <div className="border-line bg-paper rounded-md border p-2">
+            <SoundPlot sound={sound} baseHz={baseHz} />
+          </div>
+          <dl className="text-ash mt-2 grid grid-cols-2 gap-x-3 gap-y-1 font-mono text-[10px]">
+            <div className="flex justify-between gap-2">
+              <dt>sweep</dt>
+              <dd className="text-ink">{intervalLabel(osc.pitch.startHz, osc.pitch.endHz)}</dd>
+            </div>
+            <div className="flex justify-between gap-2">
+              <dt>lands</dt>
+              <dd className="text-ink">{semitoneLabel(osc.pitch.endHz, baseHz)}</dd>
+            </div>
+            <div className="flex justify-between gap-2">
+              <dt>length</dt>
+              <dd className={cn(over ? "text-amber-500" : "text-ink")}>
+                {Math.round(total)}ms
+              </dd>
+            </div>
+            <div className="flex justify-between gap-2">
+              <dt>tier</dt>
+              <dd className="text-ink">{sound.tier}</dd>
+            </div>
+          </dl>
+          {over && showLabels && (
+            <p className="mt-2 text-[11px] leading-relaxed text-amber-500">
+              Past {DURATION_WARN_MS}ms a UI sound starts overlapping whatever the user does
+              next, which reads as the app being slow.
+            </p>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
 
-/** A titled block with one plain-language line saying what these controls do. */
+/** A titled block. Its explainer is what the labels toggle hides. */
 function Group({
   title,
   help,
+  showLabels,
   last,
   children,
 }: {
   title: string
   help: string
+  showLabels: boolean
   last?: boolean
   children: React.ReactNode
 }) {
   return (
     <div className={cn(!last && "mb-6")}>
-      <div className="mb-3">
-        <Label className="mb-1">{title}</Label>
-        <p className="text-ash max-w-[70ch] text-[11px] leading-relaxed">{help}</p>
+      <div className={cn(showLabels ? "mb-3" : "mb-2")}>
+        <Label className={showLabels ? "mb-1" : "mb-0"}>{title}</Label>
+        {showLabels && (
+          <p className="text-ash max-w-[70ch] text-[11px] leading-relaxed">{help}</p>
+        )}
       </div>
       {children}
     </div>
-  )
-}
-
-/** A small picture of the sweep, so direction is visible before it is audible. */
-function Sweep({ startHz, endHz }: { startHz: number; endHz: number }) {
-  const hi = Math.max(startHz, endHz)
-  const lo = Math.min(startHz, endHz)
-  const y = (hz: number) => {
-    if (hi === lo) return 20
-    return 34 - ((Math.log2(hz) - Math.log2(lo)) / (Math.log2(hi) - Math.log2(lo))) * 28
-  }
-  return (
-    <svg viewBox="0 0 200 40" className="h-10 w-full" preserveAspectRatio="none" aria-hidden>
-      <path
-        d={`M 2 ${y(startHz)} C 70 ${y(startHz)}, 100 ${y(endHz)}, 198 ${y(endHz)}`}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        vectorEffect="non-scaling-stroke"
-        className="text-ink"
-      />
-    </svg>
   )
 }
 
@@ -494,6 +533,7 @@ function Field({
   step,
   dp = 0,
   hint,
+  showLabels,
   onChange,
 }: {
   label: string
@@ -504,6 +544,7 @@ function Field({
   step: number
   dp?: number
   hint?: string
+  showLabels: boolean
   onChange: (v: number) => void
 }) {
   return (
@@ -524,7 +565,9 @@ function Field({
         aria-label={`${label} in ${unit}`}
         className="accent-ink h-1 w-full cursor-pointer"
       />
-      {hint && <p className="text-ash mt-1 font-mono text-[10px] leading-relaxed">{hint}</p>}
+      {hint && showLabels && (
+        <p className="text-ash mt-1 text-[11px] leading-relaxed">{hint}</p>
+      )}
     </div>
   )
 }
