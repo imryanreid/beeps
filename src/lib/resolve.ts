@@ -28,6 +28,7 @@ import {
   type Envelope,
   type Sound,
   type SoundId,
+  type Tier,
   type SoundSet,
   type Voice,
   type VoiceSpec,
@@ -49,7 +50,8 @@ export type SoundDelta = {
   attackMs?: number
   decayMs?: number
   releaseMs?: number
-  durationMs?: number
+  /** How long the pitch takes to travel from start to end. */
+  sweepMs?: number
   /** Trim in dB against the tier's level. Negative is quieter. */
   gainTrimDb?: number
   cutoffHz?: number
@@ -72,7 +74,7 @@ export const LIMITS = {
   attackMs: [0.5, 200],
   decayMs: [1, 1000],
   releaseMs: [1, 1000],
-  durationMs: [10, 2000],
+  sweepMs: [1, 2000],
   gainTrimDb: [-40, 12],
   cutoffHz: [80, 20000],
   q: [0.0001, 20],
@@ -87,24 +89,21 @@ export const semitonesToHz = (baseHz: number, semitones: number): number =>
 const dbToLinear = (db: number) => Math.pow(10, db / 20)
 
 /**
- * The envelope for one voice, shortened to fit if it overruns.
+ * How long a sound is: however long its envelope takes.
  *
- * Attack, decay and release are times; the sustain segment is whatever the
- * duration has left. When the three named segments already exceed the duration
- * they scale down together rather than the sound running long — a duration
- * budget that a preset could silently blow past would make the 200 ms warning
- * meaningless.
+ * Duration used to be authored separately, with the envelope squeezed to fit
+ * it. That made the editor unusable — dragging attack up rescaled all three
+ * segments, so the slider landed somewhere you did not put it and decay and
+ * release moved on their own. You were fighting the fitter rather than editing
+ * a sound.
+ *
+ * Now it runs the other way: attack, decay and release are what you set, and
+ * the length follows. That is also the more honest model — a sound is over when
+ * it has decayed, and a "duration" that could not change what you heard was a
+ * control doing nothing.
  */
-export function fitEnvelope(env: Envelope, durationMs: number): Envelope {
-  const fixed = env.attackMs + env.decayMs + env.releaseMs
-  if (fixed <= durationMs) return env
-  const scale = durationMs / fixed
-  return {
-    attackMs: Math.max(LIMITS.attackMs[0], env.attackMs * scale),
-    decayMs: Math.max(0.5, env.decayMs * scale),
-    sustain: env.sustain,
-    releaseMs: Math.max(0.5, env.releaseMs * scale),
-  }
+export function envelopeMs(env: Envelope): number {
+  return env.attackMs + env.decayMs + env.releaseMs
 }
 
 /**
@@ -121,23 +120,32 @@ export function sweepStartSemitones(v: VoiceSpec, preset: PresetDef): number {
   return v.to + (v.from - v.to) * preset.sweepScale
 }
 
+/**
+ * The authored envelope for a sound: the preset's shape, scaled to the tier,
+ * with any explicit edit winning outright.
+ *
+ * Decay and release scale with the tier; attack does not. Attack is character —
+ * it is what makes a sound a click rather than a beep — and stretching it for
+ * an alert would just make the alert mushy.
+ */
+export function envelopeFor(preset: PresetDef, tier: Tier, delta: SoundDelta = {}): Envelope {
+  const scale = preset.envScale[tier]
+  return {
+    attackMs: clamp(delta.attackMs ?? preset.attackMs, ...LIMITS.attackMs),
+    decayMs: clamp(delta.decayMs ?? preset.decayMs * scale, ...LIMITS.decayMs),
+    sustain: preset.sustain,
+    releaseMs: clamp(delta.releaseMs ?? preset.releaseMs * scale, ...LIMITS.releaseMs),
+  }
+}
+
 function buildVoices(
   spec: (typeof SOUND_SPECS)[number],
   preset: PresetDef,
   baseHz: number,
+  env: Envelope,
   durationMs: number,
   delta: SoundDelta,
 ): Voice[] {
-  const env = fitEnvelope(
-    {
-      attackMs: clamp(delta.attackMs ?? preset.attackMs, ...LIMITS.attackMs),
-      decayMs: clamp(delta.decayMs ?? preset.decayMs, ...LIMITS.decayMs),
-      sustain: preset.sustain,
-      releaseMs: clamp(delta.releaseMs ?? preset.releaseMs, ...LIMITS.releaseMs),
-    },
-    durationMs,
-  )
-
   const primary = spec.voices[0]
   const derivedStart = semitonesToHz(baseHz, sweepStartSemitones(primary, preset))
   const derivedEnd = semitonesToHz(baseHz, primary.to)
@@ -159,7 +167,19 @@ function buildVoices(
       pitch: {
         startHz: clamp(vStart, ...LIMITS.freqHz),
         endHz: clamp(vEnd, ...LIMITS.freqHz),
-        sweepMs: durationMs * preset.sweepShare,
+        // The glide is editable in its own right — "how long the pitch takes to
+        // fall" is a question people actually have, unlike "duration", which
+        // could not change what you heard.
+        //
+        // Its default is a share of decay + release, NOT of the whole envelope,
+        // so raising the attack does not drag the glide along with it. The
+        // attack is a few milliseconds of onset; the pitch travels during the
+        // body of the sound. Deriving from the total meant every attack edit
+        // visibly moved a slider nobody had touched.
+        sweepMs: clamp(
+          delta.sweepMs ?? (env.decayMs + env.releaseMs) * preset.sweepShare,
+          ...LIMITS.sweepMs,
+        ),
       },
       env,
       gain: v.gain * preset.gain[spec.tier],
@@ -173,10 +193,7 @@ function buildVoices(
   if (noise) {
     voices.push({
       kind: "noise",
-      env: fitEnvelope(
-        { attackMs: 0.5, decayMs: noise.decayMs, sustain: 0, releaseMs: 4 },
-        durationMs,
-      ),
+      env: { attackMs: 0.5, decayMs: noise.decayMs, sustain: 0, releaseMs: 4 },
       gain: noise.amount * preset.gain[spec.tier],
       startOffsetMs: 0,
     })
@@ -223,13 +240,12 @@ export function resolve(config: SetConfig): SoundSet {
 
   const built: Sound[] = SOUND_SPECS.map((spec) => {
     const delta = config.deltas[spec.id] ?? {}
-    const durationMs = clamp(
-      delta.durationMs ?? preset.duration[spec.tier],
-      ...LIMITS.durationMs,
-    )
+    // The envelope decides the length, not the other way round. See envelopeMs.
+    const env = envelopeFor(preset, spec.tier, delta)
+    const durationMs = envelopeMs(env)
 
     const trim = delta.gainTrimDb === undefined ? 1 : dbToLinear(delta.gainTrimDb)
-    const voices = buildVoices(spec, preset, baseHz, durationMs, delta).map((v) => ({
+    const voices = buildVoices(spec, preset, baseHz, env, durationMs, delta).map((v) => ({
       ...v,
       gain: v.gain * trim,
     }))

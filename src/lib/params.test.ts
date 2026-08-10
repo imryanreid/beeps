@@ -58,7 +58,7 @@ describe("url params", () => {
         startHz: 900,
         endHz: 600,
         attackMs: 3,
-        durationMs: 120,
+        sweepMs: 40,
         gainTrimDb: -2,
       })
     }

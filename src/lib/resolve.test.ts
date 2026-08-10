@@ -10,8 +10,10 @@
 import { describe, expect, it } from "vitest"
 import {
   DEFAULT_CONFIG,
+  DURATION_WARN_MS,
   applyEdit,
-  fitEnvelope,
+  envelopeFor,
+  envelopeMs,
   frequencySpan,
   pairedEdits,
   resolve,
@@ -207,20 +209,33 @@ describe("pairs", () => {
 })
 
 describe("tiers", () => {
-  it("orders gain and duration subtle < notable < alert", () => {
+  it("orders gain and length subtle < notable < alert", () => {
     for (const p of PRESET_IDS) {
       const preset = PRESETS[p]
       expect(preset.gain.subtle).toBeLessThan(preset.gain.notable)
       expect(preset.gain.notable).toBeLessThan(preset.gain.alert)
-      expect(preset.duration.subtle).toBeLessThan(preset.duration.notable)
-      expect(preset.duration.notable).toBeLessThan(preset.duration.alert)
+      expect(preset.envScale.subtle).toBeLessThan(preset.envScale.notable)
+      expect(preset.envScale.notable).toBeLessThan(preset.envScale.alert)
     }
   })
 
   it("keeps minimal quieter and shorter than soft throughout", () => {
     for (const tier of ["subtle", "notable", "alert"] as const) {
       expect(PRESETS.minimal.gain[tier]).toBeLessThan(PRESETS.soft.gain[tier])
-      expect(PRESETS.minimal.duration[tier]).toBeLessThan(PRESETS.soft.duration[tier])
+      expect(envelopeMs(envelopeFor(PRESETS.minimal, tier)), tier).toBeLessThan(
+        envelopeMs(envelopeFor(PRESETS.soft, tier)),
+      )
+    }
+  })
+
+  it("stretches decay and release with the tier but never the attack", () => {
+    // Attack is character. Stretching it for an alert makes the alert mushy.
+    for (const p of PRESET_IDS) {
+      const subtle = envelopeFor(PRESETS[p], "subtle")
+      const alert = envelopeFor(PRESETS[p], "alert")
+      expect(alert.attackMs, p).toBe(subtle.attackMs)
+      expect(alert.decayMs, p).toBeGreaterThan(subtle.decayMs)
+      expect(alert.releaseMs, p).toBeGreaterThan(subtle.releaseMs)
     }
   })
 })
@@ -232,19 +247,68 @@ describe("the duration budget", () => {
     expect(soundingMs(s)).toBeGreaterThan(s.durationMs)
   })
 
-  it("keeps every default sound inside the 200ms warning except the alert tier", () => {
+  it("ships no default that trips the tool's own warning", () => {
+    // A preset whose defaults exceed the line the tool draws would undermine
+    // every warning it shows. The trap is the two-note sounds: `notification`
+    // starts its second note 40% in, so its total runs ~1.4x the envelope —
+    // which is what put it at 277ms before the alert tier was reined in.
     for (const presetId of PRESET_IDS) {
       for (const s of setFor(presetId).sounds) {
-        if (s.tier === "alert") continue
-        expect(soundingMs(s), `${presetId}/${s.id}`).toBeLessThanOrEqual(320)
+        expect(soundingMs(s), `${presetId}/${s.id}`).toBeLessThanOrEqual(DURATION_WARN_MS)
       }
     }
   })
 
-  it("shrinks an envelope that would overrun rather than running long", () => {
-    const fitted = fitEnvelope({ attackMs: 50, decayMs: 200, sustain: 0, releaseMs: 100 }, 100)
-    expect(fitted.attackMs + fitted.decayMs + fitted.releaseMs).toBeLessThanOrEqual(100.01)
-    expect(fitted.attackMs).toBeGreaterThan(0)
+  it("still orders the tiers by length after that cap", () => {
+    for (const presetId of PRESET_IDS) {
+      const set = setFor(presetId)
+      const len = (id: SoundId) => set.sounds.find((s) => s.id === id)!.durationMs
+      expect(len("tap"), presetId).toBeLessThan(len("send"))
+      expect(len("send"), presetId).toBeLessThan(len("delete"))
+    }
+  })
+
+  it("takes its length FROM the envelope, so an edit lands where you put it", () => {
+    // The bug this replaced: duration was authored separately and the envelope
+    // was squeezed to fit it, so dragging attack rescaled all three segments —
+    // the slider settled somewhere you did not choose, and decay and release
+    // moved on their own.
+    const set = resolve({ presetId: "soft", deltas: { tap: { attackMs: 20 } } })
+    const tap = set.sounds.find((s) => s.id === "tap")!
+    const plain = resolve(DEFAULT_CONFIG).sounds.find((s) => s.id === "tap")!
+
+    expect(tap.voices[0].env.attackMs).toBe(20)
+    // Only the attack moved. Everything else held still.
+    expect(tap.voices[0].env.decayMs).toBe(plain.voices[0].env.decayMs)
+    expect(tap.voices[0].env.releaseMs).toBe(plain.voices[0].env.releaseMs)
+    // And the sound grew by exactly what was added.
+    expect(tap.durationMs - plain.durationMs).toBeCloseTo(20 - plain.voices[0].env.attackMs, 6)
+  })
+
+  it("does not drag the glide along when the attack changes", () => {
+    // A milder version of the same bug: the glide used to derive from the
+    // whole envelope, so raising the attack visibly moved a slider nobody had
+    // touched. It derives from decay + release instead.
+    const plain = resolve(DEFAULT_CONFIG).sounds.find((s) => s.id === "tap")!
+    const edited = resolve({
+      presetId: "soft",
+      deltas: { tap: { attackMs: 24 } },
+    }).sounds.find((s) => s.id === "tap")!
+    const glide = (s: typeof plain) =>
+      s.voices[0].kind === "osc" ? s.voices[0].pitch.sweepMs : 0
+    expect(glide(edited)).toBeCloseTo(glide(plain), 6)
+  })
+
+  it("keeps every envelope edit independent of every other", () => {
+    const set = resolve({
+      presetId: "crisp",
+      deltas: { send: { attackMs: 12, decayMs: 80, releaseMs: 30 } },
+    })
+    const send = set.sounds.find((s) => s.id === "send")!.voices[0]
+    expect(send.env.attackMs).toBe(12)
+    expect(send.env.decayMs).toBe(80)
+    expect(send.env.releaseMs).toBe(30)
+    expect(envelopeMs(send.env)).toBeCloseTo(122, 6)
   })
 })
 
@@ -303,10 +367,11 @@ describe("frequency safety", () => {
 
 describe("deltas", () => {
   it("changes only the sound it names", () => {
-    const set = resolve({ presetId: "soft", deltas: { tap: { durationMs: 300 } } })
-    expect(set.sounds.find((s) => s.id === "tap")!.durationMs).toBe(300)
+    const set = resolve({ presetId: "soft", deltas: { tap: { decayMs: 300 } } })
+    const untouched = resolve(DEFAULT_CONFIG)
+    expect(set.sounds.find((s) => s.id === "tap")!.voices[0].env.decayMs).toBe(300)
     expect(set.sounds.find((s) => s.id === "open")!.durationMs).toBe(
-      PRESETS.soft.duration.subtle,
+      untouched.sounds.find((s) => s.id === "open")!.durationMs,
     )
   })
 
@@ -333,12 +398,14 @@ describe("deltas", () => {
   it("clamps anything a hand-edited URL could put out of range", () => {
     const set = resolve({
       presetId: "soft",
-      deltas: { tap: { q: 9999, cutoffHz: 1, durationMs: 99999, attackMs: -5 } },
+      deltas: { tap: { q: 9999, cutoffHz: 1, sweepMs: 99999, attackMs: -5 } },
     })
     const tap = set.sounds.find((s) => s.id === "tap")!
     expect(tap.filter.q).toBeLessThanOrEqual(20)
     expect(tap.filter.cutoffHz).toBeGreaterThanOrEqual(80)
-    expect(tap.durationMs).toBeLessThanOrEqual(2000)
+    expect(tap.voices[0].kind === "osc" && tap.voices[0].pitch.sweepMs).toBeLessThanOrEqual(
+      2000,
+    )
     expect(tap.voices[0].env.attackMs).toBeGreaterThan(0)
   })
 })

@@ -209,7 +209,7 @@ export const SOUND_SPECS: SoundSpec[] = [
     // Two rising notes a perfect fourth apart. Ascending reads as completion.
     voices: [
       { from: 4, to: 4, offsetShare: 0, gain: 1 },
-      { from: 9, to: 9, offsetShare: 0.45, gain: 0.9 },
+      { from: 9, to: 9, offsetShare: 0.35, gain: 0.9 },
     ],
     when: "A user-initiated operation completed. Only on completion the user was waiting for.",
     whenNot:
@@ -235,7 +235,7 @@ export const SOUND_SPECS: SoundSpec[] = [
     // Descending reads as "here is information" rather than "you did it".
     voices: [
       { from: 12, to: 12, offsetShare: 0, gain: 1 },
-      { from: 7, to: 7, offsetShare: 0.5, gain: 0.95 },
+      { from: 7, to: 7, offsetShare: 0.4, gain: 0.95 },
     ],
     when: "An interruption that is genuinely new information.",
     whenNot:

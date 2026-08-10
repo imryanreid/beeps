@@ -21,6 +21,7 @@ import { useTheme } from "./shared/theme"
 import Preview from "./components/Preview"
 import BeepsExport from "./components/ExportPanel"
 import SoundList from "./components/SoundList"
+import AgentData from "./components/AgentData"
 import { PRESETS, PRESET_IDS, type PresetId } from "./lib/presets"
 import type { SoundId } from "./lib/sounds"
 import {
@@ -149,6 +150,13 @@ export default function App() {
     >
       {warnings.length > 0 && <Warnings items={warnings} />}
 
+      {/*
+        The set comes first. It was under the preview, and the editor was hard
+        to find as a result — the page opened on six demo surfaces, with the
+        thing you actually change buried below them. Output before playground.
+      */}
+      <SoundList set={audio.set} config={config} onEdit={editSound} onPlay={audio.play} />
+
       <Preview
         play={audio.play}
         playSequence={audio.playSequence}
@@ -156,7 +164,8 @@ export default function App() {
         muted={audio.muted}
       />
 
-      <SoundList set={audio.set} config={config} onEdit={editSound} onPlay={audio.play} />
+      {/* Always in the DOM, like Ramps and Motion. See AgentData. */}
+      <AgentData set={audio.set} url={shareUrl} warnings={warnings} />
     </ToolShell>
   )
 }

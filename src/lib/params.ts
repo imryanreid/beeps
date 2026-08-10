@@ -45,7 +45,7 @@ const FIELDS = {
   a: "attackMs",
   d: "decayMs",
   r: "releaseMs",
-  n: "durationMs",
+  w: "sweepMs",
   g: "gainTrimDb",
   c: "cutoffHz",
   q: "q",

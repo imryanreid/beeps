@@ -130,14 +130,28 @@ octave or a fifth — is `voices.push(...)`, not a branch. v1 already exercises
 this: `success` and `notification` are two-voice sounds, so the summing path is
 covered by the shipped set rather than sitting untested until v2 needs it.
 
-**Sustain is a level, and duration is the master.** The attack, decay and
-release are times; the sustain segment is whatever `durationMs` leaves over
-after them. UI sounds are one-shots — nothing gates them — so `sustain` is 0 for
-almost every sound in every preset, and the release is what actually shapes the
-tail. Keeping full ADSR is right (the brief asks for it, and the alert tier uses
-sustain), but the honest framing is that this is an AD envelope with a tail,
-dressed as ADSR. If `attackMs + decayMs + releaseMs > durationMs`, the segments
-are scaled down proportionally rather than the sound running long.
+**The envelope is the master, and duration follows it.** `durationMs` is
+computed as `attack + decay + release`, never authored.
+
+This started the other way round — duration authored, envelope squeezed to fit —
+and it made the editor unusable. Dragging the attack rescaled all three
+segments, so the slider settled somewhere you had not chosen and decay and
+release moved on their own. You were fighting the fitter rather than editing a
+sound. It is also the more honest model: a percussive one-shot is over when it
+has decayed, and a "duration" that could not change what you heard was a
+control doing nothing.
+
+Tiers express length through `envScale`, which stretches decay and release —
+never the attack, which is character rather than duration. UI sounds are
+one-shots, so `sustain` is 0 across every shipped preset and the release shapes
+the tail; full ADSR is kept because the brief asks for it and a future preset
+may want a hold.
+
+One consequence worth stating: the **two-note sounds set the ceiling**.
+`notification` starts its second note 40% in, so its total runs about 1.4x the
+envelope. That is what caps the alert tier — at a larger scale it reached 277 ms
+and tripped this tool's own 200 ms warning, which a shipped default must never
+do. A test enforces it.
 
 **`normalizedGain` is computed once and read everywhere.** See §8 and §15.
 
@@ -268,16 +282,16 @@ A sine with the top rolled off. Nothing in it is sharp, so it survives being
 heard many times a day. This is the safe default and the one to ship if you only
 ship one.
 
-|                                     |                          |
-| ----------------------------------- | ------------------------ |
-| base                                | 720 Hz                   |
-| waveform                            | sine                     |
-| attack / decay / sustain / release  | 8 ms · 90 ms · 0 · 40 ms |
-| sweep                               | depth 1.25, share 0.55   |
-| filter                              | lowpass 1400 Hz, Q 0.7   |
-| noise                               | none                     |
-| gain (subtle / notable / alert)     | 0.18 · 0.30 · 0.40       |
-| duration (subtle / notable / alert) | 90 ms · 150 ms · 210 ms  |
+|                                    |                          |
+| ---------------------------------- | ------------------------ |
+| base                               | 720 Hz                   |
+| waveform                           | sine                     |
+| attack / decay / sustain / release | 8 ms · 90 ms · 0 · 40 ms |
+| sweep                              | depth 1.25, share 0.55   |
+| filter                             | lowpass 1400 Hz, Q 0.7   |
+| noise                              | none                     |
+| gain (subtle / notable / alert)    | 0.18 · 0.30 · 0.40       |
+| length (subtle / notable / alert)  | 80 ms · 106 ms · 138 ms  |
 
 #### Crisp — "a click, not a beep"
 
@@ -285,16 +299,16 @@ Square plus a noise transient, attack at 1 ms, sweep steep and short. The noise
 layer is what makes it read as a physical click rather than a short tone; it is
 6 ms long and does most of its work before the oscillator is at full amplitude.
 
-|                                     |                          |
-| ----------------------------------- | ------------------------ |
-| base                                | 880 Hz (A5)              |
-| waveform                            | square                   |
-| attack / decay / sustain / release  | 1 ms · 35 ms · 0 · 15 ms |
-| sweep                               | depth 1.6, share 0.35    |
-| filter                              | lowpass 5000 Hz, Q 1.2   |
-| noise                               | amount 0.25, decay 6 ms  |
-| gain (subtle / notable / alert)     | 0.22 · 0.35 · 0.45       |
-| duration (subtle / notable / alert) | 55 ms · 110 ms · 170 ms  |
+|                                    |                          |
+| ---------------------------------- | ------------------------ |
+| base                               | 880 Hz (A5)              |
+| waveform                           | square                   |
+| attack / decay / sustain / release | 1 ms · 35 ms · 0 · 15 ms |
+| sweep                              | depth 1.6, share 0.35    |
+| filter                             | lowpass 5000 Hz, Q 1.2   |
+| noise                              | amount 0.25, decay 6 ms  |
+| gain (subtle / notable / alert)    | 0.22 · 0.35 · 0.45       |
+| length (subtle / notable / alert)  | 46 ms · 91 ms · 131 ms   |
 
 #### Minimal — "you notice it missing, not present"
 
@@ -302,16 +316,16 @@ Very short, very quiet, narrow. Roughly a third of Soft's loudness and half its
 length. The test for this preset is whether you can use the app for an hour
 without being able to describe the sounds.
 
-|                                     |                          |
-| ----------------------------------- | ------------------------ |
-| base                                | 1000 Hz                  |
-| waveform                            | triangle                 |
-| attack / decay / sustain / release  | 2 ms · 24 ms · 0 · 10 ms |
-| sweep                               | depth 1.1, share 0.4     |
-| filter                              | lowpass 2200 Hz, Q 0.5   |
-| noise                               | none                     |
-| gain (subtle / notable / alert)     | 0.08 · 0.13 · 0.18       |
-| duration (subtle / notable / alert) | 40 ms · 70 ms · 100 ms   |
+|                                    |                          |
+| ---------------------------------- | ------------------------ |
+| base                               | 1000 Hz                  |
+| waveform                           | triangle                 |
+| attack / decay / sustain / release | 2 ms · 24 ms · 0 · 10 ms |
+| sweep                              | depth 1.1, share 0.4     |
+| filter                             | lowpass 2200 Hz, Q 0.5   |
+| noise                              | none                     |
+| gain (subtle / notable / alert)    | 0.08 · 0.13 · 0.18       |
+| length (subtle / notable / alert)  | 31 ms · 56 ms · 84 ms    |
 
 ---
 

@@ -33,7 +33,7 @@ export type PresetDef = {
   blurb: string
   baseHz: number
   waveform: Waveform
-  /** The envelope shape. Per-tier durations scale the sustain segment, not these. */
+  /** The envelope shape. `envScale` stretches decay and release per tier. */
   attackMs: number
   decayMs: number
   sustain: number
@@ -50,7 +50,7 @@ export type PresetDef = {
    * its character.
    */
   intrinsicSweep: number
-  /** Share of the sound's duration the pitch sweep occupies, 0–1. */
+  /** Share of the sound's length the pitch glide occupies, 0–1. */
   sweepShare: number
   filterType: "lowpass" | "highpass"
   filterCutoffHz: number
@@ -59,8 +59,16 @@ export type PresetDef = {
   noise: { amount: number; decayMs: number } | null
   /** Peak amplitude per tier, before loudness normalization. */
   gain: Record<Tier, number>
-  /** Duration budget per tier, in ms. */
-  duration: Record<Tier, number>
+  /**
+   * How much the tier stretches decay and release. Attack is left alone — it
+   * is character, and stretching it would just make an alert mushy.
+   *
+   * This replaced a separate per-tier duration budget. Duration is now derived
+   * from the envelope (see `envelopeMs`), because authoring both meant the
+   * editor had to squeeze one to fit the other, and every drag of the attack
+   * slider moved decay and release with it.
+   */
+  envScale: Record<Tier, number>
 }
 
 export const PRESETS: Record<PresetId, PresetDef> = {
@@ -85,7 +93,11 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     filterQ: 0.7,
     noise: null,
     gain: { subtle: 0.18, notable: 0.3, alert: 0.4 },
-    duration: { subtle: 90, notable: 150, alert: 210 },
+    // 80ms subtle, 106ms notable, 138ms alert. The alert figure is capped by
+    // the two-note sounds: `notification`'s second note starts 40% in, so its
+    // total is ~1.4x the envelope. At an alert scale of 1.35 that came to
+    // 277ms — a shipped default tripping the tool's own 200ms warning.
+    envScale: { subtle: 0.55, notable: 0.75, alert: 1.0 },
   },
 
   crisp: {
@@ -113,7 +125,8 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     // as a short tone with a hiss on top.
     noise: { amount: 0.25, decayMs: 6 },
     gain: { subtle: 0.22, notable: 0.35, alert: 0.45 },
-    duration: { subtle: 55, notable: 110, alert: 170 },
+    // 46ms subtle, 91ms notable, 131ms alert — same two-note ceiling as Soft.
+    envScale: { subtle: 0.9, notable: 1.8, alert: 2.6 },
   },
 
   minimal: {
@@ -138,7 +151,8 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     filterQ: 0.5,
     noise: null,
     gain: { subtle: 0.08, notable: 0.13, alert: 0.18 },
-    duration: { subtle: 40, notable: 70, alert: 100 },
+    // 2 + 24x0.85 + 10x0.85 = 31ms subtle, 56ms notable, 84ms alert.
+    envScale: { subtle: 0.85, notable: 1.6, alert: 2.4 },
   },
 }
 

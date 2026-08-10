@@ -43,12 +43,17 @@ export default function SoundList({
 
   return (
     <section className="mb-12">
-      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
+      <div className="mb-1 flex flex-wrap items-baseline justify-between gap-3">
         <h2 className="font-display text-xl font-semibold tracking-tight">The set</h2>
         <p className="text-ash font-mono text-[11px]">
           base {Math.round(set.baseHz)} Hz · 11 sounds
         </p>
       </div>
+      <p className="text-ash mb-5 max-w-[62ch] text-sm leading-relaxed">
+        Press <Play size={11} weight="fill" className="text-ink inline" /> to hear a sound, or
+        click its name to open it and change how it sounds. Every sound is derived from one base
+        frequency, so editing one keeps the rest in tune with it.
+      </p>
 
       <SpectrumRail set={set} />
 
@@ -182,8 +187,8 @@ function SoundRow({
   const span = frequencySpan(sound)
 
   return (
-    <li>
-      <div className="flex items-center gap-3 py-2">
+    <li className="group/row">
+      <div className="hover:bg-ink/[0.02] flex items-center gap-3 py-2 transition-colors">
         <button
           type="button"
           onClick={onPlay}
@@ -223,10 +228,28 @@ function SoundRow({
             {tooLong && <Warning size={11} weight="fill" className="mr-1 inline" />}
             {Math.round(total)}ms
           </span>
+          {/* Named, not just a caret. A caret alone at this size reads as
+              decoration, and the whole point is that these rows are editable. */}
+          <span
+            className={cn(
+              "text-ash group-hover/row:text-ink hidden shrink-0 items-center gap-1 font-mono text-[11px] transition-colors sm:inline-flex",
+              open && "text-ink",
+            )}
+          >
+            {open ? "close" : "edit"}
+            <CaretRight
+              size={11}
+              weight="bold"
+              className={cn("transition-transform", open && "rotate-90")}
+            />
+          </span>
           <CaretRight
             size={12}
             weight="bold"
-            className={cn("text-ash shrink-0 transition-transform", open && "rotate-90")}
+            className={cn(
+              "text-ash shrink-0 transition-transform sm:hidden",
+              open && "rotate-90",
+            )}
           />
         </button>
       </div>
@@ -255,121 +278,187 @@ function Editor({
   if (!osc || osc.kind !== "osc") return null
   const partner = partnerOf(sound.id)
   const mirrored = partner?.kind === "inversion"
+  const total = soundingMs(sound)
 
   return (
     <div className="bg-ink/[0.02] border-line -mx-4 border-t px-4 py-5 sm:mx-0 sm:px-5">
       <p className="text-ash mb-5 max-w-[70ch] text-sm leading-relaxed">
-        <span className="text-ink">Plays when:</span> {spec.when}{" "}
-        <span className="text-ink">Not when:</span> {spec.whenNot}
+        <span className="text-ink font-medium">Plays when:</span> {spec.when}{" "}
+        <span className="text-ink font-medium">Not when:</span> {spec.whenNot}
       </p>
 
       {/*
-        The pitch envelope, first and largest. The downward sweep is the most
-        important control in the tool — direction is what makes a sound read as
-        a confirmation or a dismissal — so it does not sit in an accordion
-        under the envelope timings.
+        Pitch first and largest. The downward sweep is the most important
+        parameter here — direction is what makes a sound read as a confirmation
+        or a dismissal — so it does not sit in an accordion under the timings.
       */}
-      <div className="border-line mb-5 rounded-lg border p-4">
-        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-          <Label className="mb-0">Pitch envelope</Label>
-          <span className="text-ash font-mono text-[11px]">
-            {intervalLabel(osc.pitch.startHz, osc.pitch.endHz)}
-          </span>
+      <Group
+        title="Pitch"
+        help="Where the sound starts, where it lands, and how fast it gets there. A falling sweep reads as done or dismissed; a rising one as starting or sent."
+      >
+        <div className="border-line bg-paper mb-4 rounded-md border px-3 py-2">
+          <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
+            <span className="font-mono text-[11px]">
+              {intervalLabel(osc.pitch.startHz, osc.pitch.endHz)}
+            </span>
+            <span className="text-ash font-mono text-[10px]">
+              lands {semitoneLabel(osc.pitch.endHz, baseHz)} from the {Math.round(baseHz)} Hz
+              base
+            </span>
+          </div>
+          <Sweep startHz={osc.pitch.startHz} endHz={osc.pitch.endHz} />
         </div>
 
-        <Sweep startHz={osc.pitch.startHz} endHz={osc.pitch.endHz} />
-
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-3">
           <Field
-            label="Start"
+            label="Starts at"
             unit="Hz"
             value={osc.pitch.startHz}
-            min={LIMITS.freqHz[0]}
+            min={200}
             max={2000}
             step={5}
             onChange={(v) => onEdit({ startHz: v })}
+            hint="Higher reads as lighter and more urgent."
           />
           <Field
-            label="End"
+            label="Ends at"
             unit="Hz"
             value={osc.pitch.endHz}
-            min={LIMITS.freqHz[0]}
+            min={200}
             max={2000}
             step={5}
             onChange={(v) => onEdit({ endHz: v })}
+            hint="Where it settles. This is the note you actually remember."
+          />
+          <Field
+            label="Glide"
+            unit="ms"
+            value={osc.pitch.sweepMs}
+            min={1}
+            max={300}
+            step={1}
+            onChange={(v) => onEdit({ sweepMs: v })}
+            hint="How long the pitch takes to travel. Short is a chirp; long is a swoop."
           />
         </div>
 
         {mirrored && (
-          <p className="text-ash mt-3 font-mono text-[10px] leading-relaxed">
-            Paired with <span className="text-ink">{partner.id}</span> — changing either pitch
-            mirrors the other, so the two stay inversions.
+          <p className="text-ash mt-3 text-[11px] leading-relaxed">
+            Paired with <span className="text-ink font-medium">{partner.id}</span> — changing
+            either pitch mirrors the other, so the two stay exact opposites.
           </p>
         )}
-        <p className="text-ash mt-1 font-mono text-[10px]">
-          base {Math.round(baseHz)} Hz · lands {semitoneLabel(osc.pitch.endHz, baseHz)}
-        </p>
-      </div>
+      </Group>
 
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <Field
-          label="Attack"
-          unit="ms"
-          value={osc.env.attackMs}
-          min={LIMITS.attackMs[0]}
-          max={60}
-          step={0.5}
-          onChange={(v) => onEdit({ attackMs: v })}
-          hint="Single digits is a click. Above ~20ms is a beep."
-        />
-        <Field
-          label="Decay"
-          unit="ms"
-          value={osc.env.decayMs}
-          min={1}
-          max={400}
-          step={1}
-          onChange={(v) => onEdit({ decayMs: v })}
-        />
-        <Field
-          label="Release"
-          unit="ms"
-          value={osc.env.releaseMs}
-          min={1}
-          max={300}
-          step={1}
-          onChange={(v) => onEdit({ releaseMs: v })}
-        />
-        <Field
-          label="Duration"
-          unit="ms"
-          value={sound.durationMs}
-          min={20}
-          max={400}
-          step={5}
-          onChange={(v) => onEdit({ durationMs: v })}
-        />
-        <Field
-          label="Cutoff"
-          unit="Hz"
-          value={sound.filter.cutoffHz}
-          min={200}
-          max={12000}
-          step={50}
-          onChange={(v) => onEdit({ cutoffHz: v })}
-        />
-        <Field
-          label="Resonance"
-          unit="Q"
-          value={sound.filter.q}
-          min={0.1}
-          max={20}
-          step={0.1}
-          dp={1}
-          onChange={(v) => onEdit({ q: v })}
-          hint={sound.filter.q > 12 ? "Above 12 it rings after the envelope shuts." : undefined}
-        />
+      <Group
+        title="Shape"
+        help="How the volume rises and falls. This is what separates a click from a beep — far more than pitch does."
+      >
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Field
+            label="Attack"
+            unit="ms"
+            value={osc.env.attackMs}
+            min={LIMITS.attackMs[0]}
+            max={60}
+            step={0.5}
+            dp={1}
+            onChange={(v) => onEdit({ attackMs: v })}
+            hint="How fast it starts. Under 10ms is a click; over 20ms is a beep."
+          />
+          <Field
+            label="Decay"
+            unit="ms"
+            value={osc.env.decayMs}
+            min={1}
+            max={400}
+            step={1}
+            onChange={(v) => onEdit({ decayMs: v })}
+            hint="How fast it drops away after the peak. Most of the length lives here."
+          />
+          <Field
+            label="Release"
+            unit="ms"
+            value={osc.env.releaseMs}
+            min={1}
+            max={300}
+            step={1}
+            onChange={(v) => onEdit({ releaseMs: v })}
+            hint="The tail. Long tails pile up when a sound repeats — test with rapid-fire."
+          />
+        </div>
+        <p
+          className={cn(
+            "mt-3 text-[11px] leading-relaxed",
+            total > DURATION_WARN_MS ? "text-amber-500" : "text-ash",
+          )}
+        >
+          {total > DURATION_WARN_MS && (
+            <Warning size={11} weight="fill" className="mr-1 inline" />
+          )}
+          Total length {Math.round(total)}ms — attack + decay + release.{" "}
+          {total > DURATION_WARN_MS
+            ? `Past ${DURATION_WARN_MS}ms a UI sound starts overlapping whatever the user does next, which reads as the app being slow.`
+            : `The sound is as long as its shape; there is no separate duration to fight with.`}
+        </p>
+      </Group>
+
+      <Group
+        title="Tone"
+        help="A filter over the whole sound. Use it to take the edge off, or to thin something out."
+        last
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field
+            label="Brightness"
+            unit="Hz"
+            value={sound.filter.cutoffHz}
+            min={200}
+            max={12000}
+            step={50}
+            onChange={(v) => onEdit({ cutoffHz: v })}
+            hint="Lower is duller and warmer. Higher is thinner and more present."
+          />
+          <Field
+            label="Resonance"
+            unit=""
+            value={sound.filter.q}
+            min={0.1}
+            max={20}
+            step={0.1}
+            dp={1}
+            onChange={(v) => onEdit({ q: v })}
+            hint={
+              sound.filter.q > 12
+                ? "Above 12 it rings on after the sound should have stopped."
+                : "Emphasis right at the brightness point. A little adds focus."
+            }
+          />
+        </div>
+      </Group>
+    </div>
+  )
+}
+
+/** A titled block with one plain-language line saying what these controls do. */
+function Group({
+  title,
+  help,
+  last,
+  children,
+}: {
+  title: string
+  help: string
+  last?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <div className={cn(!last && "mb-6")}>
+      <div className="mb-3">
+        <Label className="mb-1">{title}</Label>
+        <p className="text-ash max-w-[70ch] text-[11px] leading-relaxed">{help}</p>
       </div>
+      {children}
     </div>
   )
 }
