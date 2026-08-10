@@ -33,6 +33,7 @@ import {
   type VoiceSpec,
 } from "./sounds.js"
 import { DEFAULT_PRESET, PRESETS, type PresetDef, type PresetId } from "./presets.js"
+import { envelopeSegments } from "../runtime/beeps.js"
 
 /**
  * A per-sound override. Every field optional — an absent field means "whatever
@@ -280,14 +281,23 @@ export function applyNormalization(
  *
  * Not `durationMs`: a voice can start late and its release runs past the
  * nominal end, so a 180 ms sound with a 40 ms tail is a 220 ms sound. Budgeting
- * the nominal figure would let every sound in the set quietly exceed the line
- * it is being checked against.
+ * the nominal figure would let a sound quietly exceed the line it is being
+ * checked against — and, on a percussive envelope, would also count silence
+ * the synthesis never plays.
+ *
+ * The segment arithmetic comes from the runtime rather than being repeated
+ * here, so the warning always measures exactly what the synthesis does.
  */
 export function soundingMs(sound: Sound): number {
   return Math.max(
-    ...sound.voices.map((v) => v.startOffsetMs + sound.durationMs + v.env.releaseMs),
+    ...sound.voices.map(
+      (v) => v.startOffsetMs + envelopeSegments(v.env, sound.durationMs).totalMs,
+    ),
   )
 }
+
+/** Past this, a UI sound starts overlapping the next interaction. */
+export const DURATION_WARN_MS = 200
 
 /** Lowest and highest frequency the set touches — what the spectrum rail draws. */
 export function frequencySpan(sound: Sound): { minHz: number; maxHz: number } {
