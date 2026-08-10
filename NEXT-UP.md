@@ -96,10 +96,17 @@ mirrored — and nothing under `close=`, so there is no stored value for
 
 ## Next
 
-1. **Tune the three presets by ear.** This is the piece that cannot be checked
-   by a test and the thing the tool will be judged on. The numbers are a
+1. **Tune the nine presets by ear.** This is the piece that cannot be checked
+   by a test and the thing the tool will be judged on. Every number is a
    considered starting point, not a finished one. Use rapid-fire at 120 ms as
-   the acceptance test.
+   the acceptance test, and listen to `notification` on each — it is the
+   longest sound in every preset and the first to feel wrong.
+
+   Watch for two things the maths cannot catch: whether Warm's 9-cent beat is
+   audible at these durations (a beat needs time to be heard, and these sounds
+   are short), and whether Glassy's shortened tails still read as a bell now
+   they had to come down to fit the 200ms budget.
+
 2. **Register beeps.studio**, then land the domain commit — `CLAUDE.md` lists
    every file that has to change together, including the manifest entry and its
    blurb upstream in Ramps.

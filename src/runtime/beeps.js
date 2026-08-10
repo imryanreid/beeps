@@ -26,8 +26,15 @@ const TAIL_S = 0.002
 /** Web Audio throws on an exponential ramp to zero or below. */
 const MIN_HZ = 20
 
-/** Simultaneous voices before the oldest is released. Rapid-fire needs this. */
-const MAX_VOICES = 16
+/**
+ * Simultaneous SOUNDS before the oldest is released — not voices.
+ *
+ * A preset stacks layers, so one `success` on Glassy is six oscillators plus a
+ * noise burst. Capping raw node count would have cut rapid-fire off after two
+ * plays on exactly the presets with the most going on, which is the opposite
+ * of what the test is for.
+ */
+const MAX_SOUNDS = 16
 
 /**
  * How an envelope divides up its time, in milliseconds.
@@ -77,6 +84,9 @@ function noiseBuffer(ctx) {
 }
 
 const clampHz = (hz) => Math.max(MIN_HZ, Math.min(20000, hz))
+
+/** How many jumps a stepped glide takes. Few enough to hear individually. */
+const STEPS = 5
 
 /**
  * Schedule one sound on a context, live or offline.
@@ -143,14 +153,30 @@ export function scheduleSound(ctx, destination, sound, when, onVoice) {
     } else {
       node = ctx.createOscillator()
       node.type = voice.waveform
+      // Cents, for the beating that makes a stack sound warm rather than loud.
+      if (voice.detuneCents && node.detune) {
+        node.detune.setValueAtTime(voice.detuneCents, start)
+      }
       const f = node.frequency
       const from = clampHz(voice.pitch.startHz)
       const to = clampHz(voice.pitch.endHz)
+      const sweepS = Math.max(0.001, voice.pitch.sweepMs / 1000)
       f.setValueAtTime(from, start)
       if (to !== from) {
-        // Exponential, because pitch is logarithmic — a linear sweep from 880
-        // to 440 spends most of its time in the top half and sounds wrong.
-        f.exponentialRampToValueAtTime(to, start + Math.max(0.001, voice.pitch.sweepMs / 1000))
+        if (sound.glide === "stepped") {
+          // Chiptune hardware wrote pitch to a register, so it jumped rather
+          // than slid. Even steps in LOG space, because the steps have to be
+          // musical intervals — evenly spaced in Hz they would bunch up at the
+          // top and sound like a broken slide instead of an arpeggio.
+          for (let i = 1; i <= STEPS; i++) {
+            const t = i / STEPS
+            f.setValueAtTime(from * Math.pow(to / from, t), start + t * sweepS)
+          }
+        } else {
+          // Exponential, because pitch is logarithmic — a linear sweep from 880
+          // to 440 spends most of its time in the top half and sounds wrong.
+          f.exponentialRampToValueAtTime(to, start + sweepS)
+        }
       }
     }
 
@@ -202,7 +228,7 @@ export function createBeeps(config, options) {
 
   let ctx = opts.context || null
   let enabled = opts.enabled === true
-  /** @type {{ node: any, until: number }[]} */
+  /** @type {{ nodes: any[], until: number }[]} */
   let active = []
 
   function context() {
@@ -260,18 +286,20 @@ export function createBeeps(config, options) {
       // stopping the previous instance is a different sound, and it hides the
       // exact problem rapid-fire exists to find. The cap is what stops ten
       // overlapping tails climbing into clipping.
-      if (active.length >= MAX_VOICES) {
+      if (active.length >= MAX_SOUNDS) {
         const oldest = active.shift()
-        try {
-          oldest.node.stop(now)
-        } catch {
-          /* already stopped */
+        for (const node of oldest.nodes) {
+          try {
+            node.stop(now)
+          } catch {
+            /* already stopped */
+          }
         }
       }
 
-      const until = scheduleSound(c, c.destination, sound, now, (node, stopAt) => {
-        active.push({ node, until: stopAt })
-      })
+      const nodes = []
+      const until = scheduleSound(c, c.destination, sound, now, (node) => nodes.push(node))
+      active.push({ nodes, until })
       return until > now
     },
 

@@ -187,8 +187,29 @@ final class Beeps {
 function characterSentence(set: SoundSet): string {
   const preset = PRESETS[set.presetId as PresetId]
   if (!preset) return `Base ${round(set.baseHz)} Hz.`
-  const noise = preset.noise ? `, with a ${preset.noise.decayMs} ms noise transient` : ""
-  return `${preset.name} — ${preset.waveform}${noise}, base ${round(set.baseHz)} Hz, ${preset.attackMs} ms attack, ${preset.filterType} at ${round(preset.filterCutoffHz)} Hz.`
+
+  // Describe the stack, because on most presets that IS the character — a
+  // waveform name alone would make Warm and Bloopy sound identical on paper.
+  const stack = preset.layers
+    .map((l) => {
+      const at =
+        l.interval === 0
+          ? l.detuneCents
+            ? `detuned ${l.detuneCents} cents`
+            : "at the note"
+          : `+${l.interval} semitones`
+      const rings = l.tail && l.tail > 1 ? ", ringing on" : ""
+      return `${l.waveform} ${at}${rings}`
+    })
+    .join("; ")
+
+  const noise = preset.noise ? `, plus a ${preset.noise.decayMs} ms noise transient` : ""
+  const glide = preset.glide === "stepped" ? ", pitch stepping rather than sliding" : ""
+  return (
+    `${preset.name} — ${stack}${noise}. Base ${round(set.baseHz)} Hz, ${preset.attackMs} ms attack, ` +
+    `${preset.filterType} at ${round(preset.filterCutoffHz)} Hz with Q ${preset.filterQ}${glide}. ` +
+    `Suits ${preset.suits}.`
+  )
 }
 
 function intervalOf(set: SoundSet, id: SoundId): string {

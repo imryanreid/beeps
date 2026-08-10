@@ -20,9 +20,11 @@ Public, open source (MIT), and a portfolio piece. Third tool in the
 
 ## What it does
 
-- **Three character presets** — Soft, Crisp, Minimal — that apply to the whole
-  set at once, so it stays internally consistent rather than becoming eleven
-  unrelated noises.
+- **Nine character presets** — Soft, Minimal, Crisp, Warm, Bloopy, Glassy,
+  Playful, Retro and Sci-Fi — each applying to the whole set at once, so it
+  stays internally consistent rather than becoming eleven unrelated noises.
+  Each one contributes its own voice stack: a detuned twin for Warm's beating,
+  overtones that ring on for Glassy's bell, stacked fifths for Sci-Fi's zap.
 - **A semantic system.** One base frequency; every sound derived at a musical
   interval from it, so nothing clashes. Paired sounds are generated from each
   other — toggle on and off are inversions, and stay that way when you edit

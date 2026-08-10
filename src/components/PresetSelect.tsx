@@ -132,6 +132,9 @@ export default function PresetSelect({
                   <span className="text-ash mt-0.5 block text-[11px] leading-relaxed">
                     {preset.blurb}
                   </span>
+                  <span className="text-ash/70 mt-0.5 block font-mono text-[10px]">
+                    {preset.suits}
+                  </span>
                 </button>
 
                 {asking && (

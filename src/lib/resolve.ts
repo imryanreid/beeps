@@ -33,7 +33,13 @@ import {
   type Voice,
   type VoiceSpec,
 } from "./sounds.js"
-import { DEFAULT_PRESET, PRESETS, type PresetDef, type PresetId } from "./presets.js"
+import {
+  DEFAULT_PRESET,
+  PRESETS,
+  type PresetDef,
+  type PresetId,
+  type PresetLayer,
+} from "./presets.js"
 import { envelopeSegments } from "../runtime/beeps.js"
 
 /**
@@ -138,6 +144,19 @@ export function envelopeFor(preset: PresetDef, tier: Tier, delta: SoundDelta = {
   }
 }
 
+/**
+ * Layer gains, scaled so the stack sums to 1.
+ *
+ * Without this a three-layer preset would be roughly three times louder than a
+ * one-layer one before normalization ever ran, and the loud ones would clip on
+ * the way to being measured. Normalising here means a preset's `gain` table
+ * still means what it says whatever its stack looks like.
+ */
+function normalizedLayers(preset: PresetDef): { layer: PresetLayer; gain: number }[] {
+  const total = preset.layers.reduce((sum, l) => sum + l.gain, 0) || 1
+  return preset.layers.map((layer) => ({ layer, gain: layer.gain / total }))
+}
+
 function buildVoices(
   spec: (typeof SOUND_SPECS)[number],
   preset: PresetDef,
@@ -150,42 +169,54 @@ function buildVoices(
   const derivedStart = semitonesToHz(baseHz, sweepStartSemitones(primary, preset))
   const derivedEnd = semitonesToHz(baseHz, primary.to)
 
-  // An explicit pitch override retunes the whole sound. Secondary voices move
-  // by the same ratio, so a two-note sound keeps the interval between its
-  // notes rather than collapsing onto the primary.
+  // An explicit pitch override retunes the whole sound. Secondary notes move by
+  // the same ratio, so a two-note sound keeps the interval between its notes
+  // rather than collapsing onto the primary.
   const startHz = delta.startHz ?? derivedStart
   const endHz = delta.endHz ?? derivedEnd
   const ratio = (startHz + endHz) / (derivedStart + derivedEnd)
 
-  const voices: Voice[] = spec.voices.map((v, i) => {
-    const vStart =
-      i === 0 ? startHz : semitonesToHz(baseHz, sweepStartSemitones(v, preset)) * ratio
-    const vEnd = i === 0 ? endHz : semitonesToHz(baseHz, v.to) * ratio
-    return {
-      kind: "osc",
-      waveform: preset.waveform,
-      pitch: {
-        startHz: clamp(vStart, ...LIMITS.freqHz),
-        endHz: clamp(vEnd, ...LIMITS.freqHz),
-        // The glide is editable in its own right — "how long the pitch takes to
-        // fall" is a question people actually have, unlike "duration", which
-        // could not change what you heard.
-        //
-        // Its default is a share of decay + release, NOT of the whole envelope,
-        // so raising the attack does not drag the glide along with it. The
-        // attack is a few milliseconds of onset; the pitch travels during the
-        // body of the sound. Deriving from the total meant every attack edit
-        // visibly moved a slider nobody had touched.
-        sweepMs: clamp(
-          delta.sweepMs ?? (env.decayMs + env.releaseMs) * preset.sweepShare,
-          ...LIMITS.sweepMs,
-        ),
-      },
-      env,
-      gain: v.gain * preset.gain[spec.tier],
-      startOffsetMs: v.offsetShare * durationMs,
+  const sweepMs = clamp(
+    delta.sweepMs ?? (env.decayMs + env.releaseMs) * preset.sweepShare,
+    ...LIMITS.sweepMs,
+  )
+
+  const layers = normalizedLayers(preset)
+  const voices: Voice[] = []
+
+  // Every semantic note x every preset layer. The note carries the meaning —
+  // which interval, rising or falling — and the layer carries the character.
+  // Keeping them separate is what lets a preset change the instrument without
+  // touching what any sound MEANS.
+  for (const [i, note] of spec.voices.entries()) {
+    const noteStart =
+      i === 0 ? startHz : semitonesToHz(baseHz, sweepStartSemitones(note, preset)) * ratio
+    const noteEnd = i === 0 ? endHz : semitonesToHz(baseHz, note.to) * ratio
+
+    for (const [index, { layer, gain }] of layers.entries()) {
+      const shift = Math.pow(2, layer.interval / 12)
+      // `tail` lets an upper partial outlast the note under it, which is what
+      // a bell does and the only reason Glassy sounds like glass.
+      const tail = layer.tail ?? 1
+      voices.push({
+        kind: "osc",
+        waveform: layer.waveform,
+        pitch: {
+          startHz: clamp(noteStart * shift, ...LIMITS.freqHz),
+          endHz: clamp(noteEnd * shift, ...LIMITS.freqHz),
+          sweepMs,
+        },
+        env:
+          tail === 1
+            ? env
+            : { ...env, decayMs: env.decayMs * tail, releaseMs: env.releaseMs * tail },
+        gain: note.gain * gain * preset.gain[spec.tier],
+        startOffsetMs: note.offsetShare * durationMs,
+        ...(layer.detuneCents ? { detuneCents: layer.detuneCents } : {}),
+        layer: index,
+      })
     }
-  })
+  }
 
   // The noise layer, when the preset carries one or the sound insists. `delete`
   // insists: an octave drop with no transient reads as a swoop, not a removal.
@@ -262,6 +293,7 @@ export function resolve(config: SetConfig): SoundSet {
         q: clamp(delta.q ?? preset.filterQ, ...LIMITS.q),
       },
       durationMs,
+      glide: preset.glide,
       tier: spec.tier,
       // Unnormalized until applyNormalization runs. Never authored.
       normalizedGain: 1,

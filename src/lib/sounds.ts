@@ -62,6 +62,24 @@ export type OscVoice = {
   gain: number
   /** Delay from the sound's t0. A two-note sound is two voices, not a special case. */
   startOffsetMs: number
+  /**
+   * Fine offset in cents, applied on top of the pitch envelope.
+   *
+   * Only a preset layer sets this, and only for beating: two voices a few
+   * cents apart drift in and out of phase with each other, which is the whole
+   * of what "warm" means on a synthesizer. It cannot be expressed as a
+   * frequency, because it has to track the sweep.
+   */
+  detuneCents?: number
+  /**
+   * Which preset layer produced this voice. 0 is the note itself; anything
+   * above is colour — an octave, a fifth, a detuned twin.
+   *
+   * The editor uses it to find the voice a slider should address, so a
+   * three-layer preset does not hand you the shimmer to edit instead of the
+   * note.
+   */
+  layer: number
 }
 
 export type NoiseVoice = {
@@ -70,6 +88,9 @@ export type NoiseVoice = {
   gain: number
   startOffsetMs: number
 }
+
+/** How the pitch travels. See `PresetDef.glide`. */
+export type Glide = "smooth" | "stepped"
 
 export type Voice = OscVoice | NoiseVoice
 
@@ -87,6 +108,7 @@ export type Sound = {
   voices: Voice[]
   filter: Filter
   durationMs: number
+  glide: Glide
   tier: Tier
   /**
    * Set by loudness.ts at resolve time, never authored.

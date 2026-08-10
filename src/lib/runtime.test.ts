@@ -190,6 +190,27 @@ describe("the graph", () => {
     expect(filter.connections).toContain(master)
   })
 
+  it("steps the pitch on retro, and slides everywhere else", () => {
+    // Chiptune hardware wrote pitch to a register, so it jumped. Sliding it
+    // would sound like a broken portamento rather than an arpeggio.
+    const retro = resolve({ presetId: "retro", deltas: {} })
+    const ctx = fake()
+    scheduleSound(
+      ctx,
+      ctx.destination,
+      retro.sounds.find((s) => s.id === "delete")!,
+      0,
+    )
+    const osc = ctx.oscillators[0]
+    expect(osc.frequency.calls.every((c) => c.method === "set")).toBe(true)
+    expect(osc.frequency.calls.length).toBeGreaterThan(3)
+    // Steps are even in LOG space — evenly spaced in Hz they would bunch at
+    // the top and stop sounding like intervals.
+    const hz = osc.frequency.calls.map((c) => c.value)
+    const ratios = hz.slice(1).map((v, i) => v / hz[i])
+    for (const r of ratios.slice(1)) expect(r).toBeCloseTo(ratios[0], 4)
+  })
+
   it("sweeps pitch exponentially, and only when it moves", () => {
     const ctx = fake()
     scheduleSound(ctx, ctx.destination, soundBy("delete"), 0)
@@ -285,6 +306,28 @@ describe("the player, and the mute gate", () => {
     expect(ctx.oscillators).toHaveLength(10)
     const cutShort = ctx.oscillators.filter((o) => o.stopped! <= o.started!)
     expect(cutShort).toHaveLength(0)
+  })
+
+  it("counts SOUNDS against the cap, not oscillators", () => {
+    // A layered preset is many nodes per play — Glassy's `success` is six
+    // oscillators plus a noise burst. Capping raw nodes would have cut
+    // rapid-fire off after two plays on exactly the presets with the most
+    // going on, which is the opposite of what that test is for.
+    const glassy = resolve({ presetId: "glassy", deltas: {} })
+    const config = {
+      baseHz: glassy.baseHz,
+      sounds: Object.fromEntries(glassy.sounds.map((s) => [s.id, s])),
+    }
+    const ctx = fake()
+    const beeps = createBeeps(config, { context: ctx })
+    beeps.enable()
+    for (let i = 0; i < 10; i++) beeps.play("success")
+
+    const perPlay = glassy.sounds.find((s) => s.id === "success")!.voices.length
+    expect(perPlay).toBeGreaterThan(4)
+    // All ten plays got through; none was stopped early.
+    const stoppedEarly = ctx.oscillators.filter((o) => o.stopped === ctx.currentTime)
+    expect(stoppedEarly).toHaveLength(0)
   })
 
   it("caps polyphony so overlapping tails cannot climb into clipping", () => {

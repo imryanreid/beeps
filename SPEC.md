@@ -50,10 +50,14 @@ normalization; the preview surfaces including rapid-fire; URL state; and five
 export formats — WAV, base64 data URI, a JS synthesis function, JSON params,
 and agent markdown. Plus the native pair (WAV + an `AVAudioPlayer` snippet).
 
-**Deferred to v2**, named here so the v1 architecture leaves room: a second
-oscillator at a fixed interval; four more presets (Warm, Retro, Glassy,
-Playful); A/B compare between two presets; a zip of the full set; suggested
-haptic mappings; a filter envelope.
+**Shipped beyond the original v1 line.** Preset _layers_ — a preset
+contributing its own voices on top of each semantic note — landed early,
+because without them every preset is the same synth with the filter moved and
+the whole "character" idea collapses. That unlocked nine presets rather than
+three: Soft, Minimal, Crisp, Warm, Bloopy, Glassy, Playful, Retro and Sci-Fi.
+
+**Deferred to v2**: A/B compare between two presets; a zip of the full set;
+suggested haptic mappings; a filter envelope.
 
 **Out of scope entirely:** MP3, AAC and MP4 export (§12); recording or importing
 audio; anything with a backend, an account, or a stored file.
@@ -269,7 +273,7 @@ type PresetDef = {
 }
 ```
 
-### The three, for v1
+### The nine
 
 These numbers are a considered starting point, not final. Presets are the
 highest-taste, lowest-code part of this product and they get tuned by ear during
