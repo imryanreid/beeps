@@ -8,16 +8,18 @@
 // down. Nothing below here recomputes a frequency.
 // ==============================================
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { SpeakerSimpleHigh, SpeakerSimpleSlash } from "@phosphor-icons/react"
+import { DownloadSimple, SpeakerSimpleHigh, SpeakerSimpleSlash } from "@phosphor-icons/react"
 import ToolShell from "./shared/components/ToolShell"
 import ThemeToggle from "./shared/components/ThemeToggle"
 import IconButton from "./shared/components/IconButton"
 import ResetButton from "./shared/components/ResetButton"
 import ShareButton from "./shared/components/ShareButton"
+import ExportModal from "./shared/components/ExportModal"
 import Segmented from "./shared/components/Segmented"
 import { FieldLabel } from "./shared/components/Label"
 import { useTheme } from "./shared/theme"
 import Preview from "./components/Preview"
+import BeepsExport from "./components/ExportPanel"
 import { PRESETS, PRESET_IDS, type PresetId } from "./lib/presets"
 import { DEFAULT_CONFIG, resolve, type SetConfig } from "./lib/resolve"
 import { decodeWarnings, encodeConfig, resolveConfig } from "./lib/params"
@@ -39,6 +41,7 @@ export default function App() {
   )
   /** What Reset threw away, so its undo has something to put back. */
   const [previous, setPrevious] = useState<SetConfig | null>(null)
+  const [exporting, setExporting] = useState(false)
 
   // Resolving is cheap and pure, but it must be memoised: useAudio re-measures
   // the whole set whenever this object's identity changes, and a fresh object
@@ -98,6 +101,9 @@ export default function App() {
             onUndo={() => previous && setConfig(previous)}
           />
           <ShareButton url={shareUrl} />
+          <IconButton title="Export sounds" variant="solid" onClick={() => setExporting(true)}>
+            <DownloadSimple size={17} weight="regular" />
+          </IconButton>
         </>
       }
       controls={
@@ -118,6 +124,13 @@ export default function App() {
           </div>
           <p className="text-ash max-w-[46ch] pb-2 text-sm leading-relaxed">{preset.blurb}</p>
         </div>
+      }
+      overlay={
+        exporting ? (
+          <ExportModal onClose={() => setExporting(false)}>
+            <BeepsExport set={audio.set} url={shareUrl} warnings={warnings} />
+          </ExportModal>
+        ) : null
       }
     >
       {warnings.length > 0 && <Warnings items={warnings} />}
