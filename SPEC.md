@@ -153,9 +153,8 @@ may want a hold.
 
 One consequence worth stating: the **two-note sounds set the ceiling**.
 `notification` starts its second note 40% in, so its total runs about 1.4x the
-envelope. That is what caps the alert tier — at a larger scale it reached 277 ms
-and tripped this tool's own 200 ms warning, which a shipped default must never
-do. A test enforces it.
+envelope — more where a layer has a `tail`. A shipped default must never trip
+this tool's own warning, and a test enforces it at both ends.
 
 **`normalizedGain` is computed once and read everywhere.** See §8 and §15.
 
@@ -400,7 +399,7 @@ downward interval, and the constraint has two sides.
 
 `delete` drops a full octave, so the base sets the floor for the whole set.
 `notification` reaches +12, so the base also sets the ceiling. Those have to
-land between two hazards: the frequencies a phone speaker cannot reproduce, and
+land between two hazards: the frequencies a small speaker cannot reproduce, and
 the band the ear finds harsh (§10).
 
 | Base       | `delete` floor (−12) | `notification` ceiling (+12) | Verdict                                                             |
@@ -578,7 +577,7 @@ collapse them.
 
   | Zone                | Range                                   | Why it is marked                                                                                                                                                                                                                                                                                                                            |
   | ------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-  | Phone-speaker floor | below ~300 Hz solid, ~300–500 Hz graded | Micro-speakers produce little useful output below roughly 250–300 Hz, and a small sealed enclosure can roll off from as high as 800 Hz. The zone is drawn as a gradient rather than a line because the exact knee depends on the enclosure, not on a standard — the honest statement is "increasingly unreliable", not "inaudible below X". |
+  | Small-speaker floor | below ~300 Hz solid, ~300–500 Hz graded | Small speakers produce little useful output below roughly 250–300 Hz, and a small sealed enclosure can roll off from as high as 800 Hz. The zone is drawn as a gradient rather than a line because the exact knee depends on the enclosure, not on a standard — the honest statement is "increasingly unreliable", not "inaudible below X". |
   | Harsh band          | 2–5 kHz                                 | The ear's most sensitive region. Peaks here read as piercing at volumes that seem fine elsewhere.                                                                                                                                                                                                                                           |
   | Dead air            | above ~12 kHz                           | Nothing useful, inaudible to many adults, and pure file size.                                                                                                                                                                                                                                                                               |
 
@@ -900,7 +899,7 @@ everything after it.
 
 - **Base frequency: 880 Hz**, resolved against sources in §7.1.1 rather than by
   preference. It is the value where the set's full ±12-semitone span clears both
-  the phone-speaker rolloff and the 2 kHz harsh band, and it sits inside the
+  the small-speaker rolloff and the 2 kHz harsh band, and it sits inside the
   350–1000 Hz range earcon research treats as typical. Soft overrides to 720 Hz,
   the lowest any shipped preset goes.
 - **`tap` stays a distinct sound**, not the subtle tier's reference tone. The

@@ -38,6 +38,26 @@ describe("agent markdown", () => {
     }
   })
 
+  it("gives length a floor as well as a ceiling", () => {
+    // The floor is the half people miss — they read a quiet sound as a volume
+    // problem when it is a duration problem.
+    expect(md).toContain("floor as well as a ceiling")
+    expect(md).toMatch(/integrates loudness/)
+    expect(md).toContain("turning it up will not fix it")
+  })
+
+  it("tells a web app not to play into a backgrounded tab", () => {
+    expect(md).toContain("visibilityState")
+  })
+
+  it("says which frequency zone bites on which platform", () => {
+    // Desktop and web users are often on headphones, which reproduce the harsh
+    // band faithfully and make the low floor much less binding. The weighting
+    // flips, and saying so is more useful than listing both flatly.
+    expect(md).toContain("Small-speaker floor")
+    expect(md).toContain("bites on desktop")
+  })
+
   it("states the mute gate as a requirement, not a suggestion", () => {
     expect(md).toContain("default it to OFF")
     expect(md).toContain("Never autoplay")
@@ -141,6 +161,16 @@ describe("native export", () => {
   it("defaults to off and uses the ambient session category", () => {
     expect(swift).toContain("isEnabled = false")
     expect(swift).toContain(".ambient")
+  })
+
+  it("compiles for macOS, which is a primary target", () => {
+    // AVAudioSession does not exist on macOS — an unguarded call does not
+    // compile for a Mac target at all. This shipped broken for exactly the
+    // platform the tool is aimed at.
+    expect(swift).toContain("#if os(iOS)")
+    expect(swift).toContain("#endif")
+    const guarded = swift.slice(swift.indexOf("#if os(iOS)"), swift.indexOf("#endif"))
+    expect(guarded).toContain("AVAudioSession")
   })
 
   it("names the sound it is for", () => {

@@ -21,14 +21,13 @@
 // something you should be able to see, not only read.
 // ==============================================
 import { cn } from "../shared/utils"
-import { DURATION_WARN_MS } from "../lib/resolve"
+import { DURATION_BUDGET } from "../lib/resolve"
 import { envelopeSegments } from "../runtime/beeps.js"
 import type { Sound } from "../lib/sounds"
 
 // The fixed frame. Wide enough for anything the sliders can reach.
 const HZ_MIN = 200
 const HZ_MAX = 2000
-const MS_REF = 250
 
 const W = 320
 const H = 168
@@ -47,9 +46,12 @@ export default function SoundPlot({ sound, baseHz }: { sound: Sound; baseHz: num
 
   const seg = envelopeSegments(osc.env, sound.durationMs)
   const total = seg.totalMs
-  // Longer sounds are allowed to run off a 250ms frame rather than squashing
-  // it — but the frame only ever grows, so short sounds stay short-looking.
-  const msMax = Math.max(MS_REF, total * 1.05)
+  const budget = DURATION_BUDGET[sound.tier]
+  // The time axis is the TIER's window, so every sound in a tier is drawn on
+  // the same clock and can be compared by flicking between them. It stretches
+  // only for a sound that has run past its own ceiling — which is exactly the
+  // case you want to see rather than have quietly rescaled out of view.
+  const msMax = Math.max(budget.maxMs * 1.05, total * 1.05)
 
   const x = (ms: number) => PAD.left + (ms / msMax) * PLOT_W
   const y = (hz: number) => {
@@ -82,12 +84,12 @@ export default function SoundPlot({ sound, baseHz }: { sound: Sound; baseHz: num
     "Z",
   ].join(" ")
 
-  const overBudget = total > DURATION_WARN_MS
-  const warnX = x(DURATION_WARN_MS)
+  const tooLong = total > budget.maxMs
+  const tooShort = total < budget.minMs
   const baseInFrame = baseHz >= HZ_MIN && baseHz <= HZ_MAX
 
   const hzTicks = [250, 500, 1000, 2000].filter((hz) => hz >= HZ_MIN && hz <= HZ_MAX)
-  const msTicks = [100, 200].filter((ms) => ms < msMax)
+  const msTicks = [100, 250, 500].filter((ms) => ms < msMax * 0.95)
 
   return (
     <svg
@@ -149,26 +151,38 @@ export default function SoundPlot({ sound, baseHz }: { sound: Sound; baseHz: num
         </>
       )}
 
-      {/* The 200ms budget, drawn across both panes. */}
-      {warnX < W - PAD.right && (
+      {/*
+        Both edges of the tier's window. The lower one is the half no other tool
+        draws, and it is the one people need: a sound left of it is not subtle,
+        it is too short for the ear to register.
+      */}
+      <rect
+        x={PAD.left}
+        y={PAD.top}
+        width={Math.max(0, x(budget.minMs) - PAD.left)}
+        height={AMP_TOP + AMP_H - PAD.top}
+        className={cn(tooShort ? "fill-amber-500/15" : "fill-ink/[0.04]")}
+      />
+      {x(budget.maxMs) < W - PAD.right && (
         <>
           <line
-            x1={warnX}
-            x2={warnX}
+            x1={x(budget.maxMs)}
+            x2={x(budget.maxMs)}
             y1={PAD.top}
             y2={AMP_TOP + AMP_H}
-            className={cn(overBudget ? "stroke-amber-500" : "stroke-line")}
+            className={cn(tooLong ? "stroke-amber-500" : "stroke-line")}
             strokeWidth="1"
             strokeDasharray="2 2"
             vectorEffect="non-scaling-stroke"
           />
           <text
-            x={warnX + 3}
+            x={x(budget.maxMs) - 3}
             y={PAD.top + 7}
-            className={cn("font-mono", overBudget ? "fill-amber-500" : "fill-ash")}
+            textAnchor="end"
+            className={cn("font-mono", tooLong ? "fill-amber-500" : "fill-ash")}
             fontSize="7"
           >
-            {DURATION_WARN_MS}ms
+            {budget.maxMs}ms
           </text>
         </>
       )}

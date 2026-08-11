@@ -96,6 +96,15 @@ mirrored — and nothing under `close=`, so there is no stored value for
 
 ## Next
 
+0. **Ry is writing per-sound shape/flavour definitions.** Those land next and
+   supersede a chunk of the tuning below. Two things to know before folding
+   them in: the _semantics_ are currently global (every preset shares the same
+   intervals and directions) and only _character_ varies per preset — if a
+   definition implies a sound's shape should differ BY preset, that is a real
+   architectural change, not a tweak. And two rules are load-bearing unless
+   argued out of: direction stays meaningful, and the duration window is a real
+   constraint at both ends.
+
 1. **Tune the nine presets by ear.** This is the piece that cannot be checked
    by a test and the thing the tool will be judged on. Every number is a
    considered starting point, not a finished one. Use rapid-fire at 120 ms as

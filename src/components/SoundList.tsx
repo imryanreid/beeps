@@ -19,14 +19,22 @@ import { Label } from "../shared/components/Label"
 import { cn } from "../shared/utils"
 import { HOVER_LIFT } from "../shared/motion"
 import {
-  DURATION_WARN_MS,
+  DURATION_BUDGET,
+  durationVerdict,
   LIMITS,
   frequencySpan,
   soundingMs,
   type SetConfig,
   type SoundDelta,
 } from "../lib/resolve"
-import { partnerOf, specFor, type Sound, type SoundId, type SoundSet } from "../lib/sounds"
+import {
+  partnerOf,
+  specFor,
+  type Sound,
+  type SoundId,
+  type SoundSet,
+  type Tier,
+} from "../lib/sounds"
 import SoundPlot from "./SoundPlot"
 
 export default function SoundList({
@@ -101,12 +109,18 @@ const railX = (hz: number) =>
  * Every sound's frequency span, drawn against the three zones that matter.
  *
  * This is the frequency guidance as a picture rather than a paragraph. Drag the
- * base down and you *watch* `delete` fall into the phone-speaker floor, which
+ * base down and you *watch* `delete` fall into the small-speaker floor, which
  * is the kind of thing a written guideline never conveys in time to prevent it.
  *
- * The floor is a gradient rather than a line on purpose: micro-speakers give up
+ * The floor is a gradient rather than a line on purpose: small speakers give up
  * somewhere between 250 and 800 Hz depending on the enclosure, so the honest
  * statement is "increasingly unreliable", not "inaudible below X".
+ *
+ * Both zones matter, but their weighting flips by platform. This tool targets
+ * web and desktop first, where people are often on headphones or monitors —
+ * which reproduce the harsh band faithfully and painfully, and make the low
+ * floor much less binding. A laptop speaker still has the floor; a good pair of
+ * headphones mostly does not.
  */
 function SpectrumRail({ set }: { set: SoundSet }) {
   const ticks = [125, 250, 500, 1000, 2000, 4000, 8000]
@@ -114,8 +128,9 @@ function SpectrumRail({ set }: { set: SoundSet }) {
     <div>
       <Label className="mb-2">Where the set sits</Label>
       <div className="border-line relative h-24 overflow-hidden rounded-lg border">
-        {/* Phone-speaker floor — a gradient, because the knee depends on the
-            enclosure rather than on a standard. */}
+        {/* Small-speaker floor — a gradient, because the knee depends on the
+            enclosure rather than on a standard. Laptop speakers have it too;
+            headphones largely do not. */}
         <div
           className="absolute inset-y-0 left-0"
           style={{
@@ -163,7 +178,8 @@ function SpectrumRail({ set }: { set: SoundSet }) {
         ))}
       </div>
       <p className="text-ash mt-2 font-mono text-[10px]">
-        red: below the phone-speaker floor · amber: the 2–5kHz harsh band
+        red: weak on small speakers · amber: the 2–5kHz harsh band, which bites hardest on
+        headphones
       </p>
     </div>
   )
@@ -196,7 +212,7 @@ function SoundRow({
 }) {
   const spec = specFor(sound.id)
   const total = soundingMs(sound)
-  const tooLong = total > DURATION_WARN_MS
+  const verdict = durationVerdict(sound)
   const span = frequencySpan(sound)
 
   return (
@@ -231,14 +247,13 @@ function SoundRow({
             {Math.round(span.minHz)}–{Math.round(span.maxHz)} Hz
           </span>
           <span
-            className={cn("font-mono text-[11px]", tooLong ? "text-amber-500" : "text-ash")}
-            title={
-              tooLong
-                ? `${Math.round(total)}ms of sounding time. Past ${DURATION_WARN_MS}ms a UI sound starts overlapping the next interaction.`
-                : undefined
-            }
+            className={cn(
+              "font-mono text-[11px]",
+              verdict === "ok" ? "text-ash" : "text-amber-500",
+            )}
+            title={verdict === "ok" ? undefined : durationNote(sound.tier, verdict)}
           >
-            {tooLong && <Warning size={11} weight="fill" className="mr-1 inline" />}
+            {verdict !== "ok" && <Warning size={11} weight="fill" className="mr-1 inline" />}
             {Math.round(total)}ms
           </span>
           {/* Named, not just a caret. A caret alone at this size reads as
@@ -305,7 +320,7 @@ function Editor({
   const partner = partnerOf(sound.id)
   const mirrored = partner?.kind === "inversion"
   const total = soundingMs(sound)
-  const over = total > DURATION_WARN_MS
+  const verdict = durationVerdict(sound)
 
   return (
     <div className="bg-ink/[0.02] border-line -mx-4 border-t px-4 py-5 sm:mx-0 sm:px-5">
@@ -476,7 +491,7 @@ function Editor({
             </div>
             <div className="flex justify-between gap-2">
               <dt>length</dt>
-              <dd className={cn(over ? "text-amber-500" : "text-ink")}>
+              <dd className={cn(verdict === "ok" ? "text-ink" : "text-amber-500")}>
                 {Math.round(total)}ms
               </dd>
             </div>
@@ -485,10 +500,9 @@ function Editor({
               <dd className="text-ink">{sound.tier}</dd>
             </div>
           </dl>
-          {over && showLabels && (
+          {verdict !== "ok" && (
             <p className="mt-2 text-[11px] leading-relaxed text-amber-500">
-              Past {DURATION_WARN_MS}ms a UI sound starts overlapping whatever the user does
-              next, which reads as the app being slow.
+              {durationNote(sound.tier, verdict)}
             </p>
           )}
         </div>
@@ -570,6 +584,23 @@ function Field({
       )}
     </div>
   )
+}
+
+/**
+ * Why a length is flagged, in the terms that matter.
+ *
+ * The short case is the one worth spelling out: people assume a quiet sound is
+ * a volume problem, when below about 70 ms it is a *duration* problem — the ear
+ * has not had long enough to register it, and turning it up will not fix that.
+ */
+function durationNote(tier: Tier, verdict: "short" | "long"): string {
+  const budget = DURATION_BUDGET[tier]
+  if (verdict === "short") {
+    return `Under ${budget.minMs}ms the ear does not have time to register a sound properly — it will read as faint no matter how far you turn it up. Lengthen the decay rather than raising the gain.`
+  }
+  return tier === "subtle"
+    ? `Over ${budget.maxMs}ms. Subtle sounds fire in quick succession, so a long one overlaps the next interaction and reads as the app being slow.`
+    : `Over ${budget.maxMs}ms. A ${tier} sound can afford to be a figure rather than a blip, but past this it outlasts the moment it is marking.`
 }
 
 const intervalLabel = (startHz: number, endHz: number): string => {

@@ -10,7 +10,8 @@
 import { describe, expect, it } from "vitest"
 import {
   DEFAULT_CONFIG,
-  DURATION_WARN_MS,
+  DURATION_BUDGET,
+  durationVerdict,
   applyEdit,
   envelopeFor,
   envelopeMs,
@@ -247,15 +248,42 @@ describe("the duration budget", () => {
     expect(soundingMs(s)).toBeGreaterThan(s.durationMs)
   })
 
-  it("ships no default that trips the tool's own warning", () => {
-    // A preset whose defaults exceed the line the tool draws would undermine
-    // every warning it shows. The trap is the two-note sounds: `notification`
-    // starts its second note 40% in, so its total runs ~1.4x the envelope —
-    // which is what put it at 277ms before the alert tier was reined in.
+  it("ships no default outside its tier's window, either end", () => {
+    // A preset whose defaults trip the tool's own warning would undermine every
+    // warning it shows. Both ends matter: too long overlaps the next
+    // interaction, too short is inaudible however far you turn it up.
     for (const presetId of PRESET_IDS) {
       for (const s of setFor(presetId).sounds) {
-        expect(soundingMs(s), `${presetId}/${s.id}`).toBeLessThanOrEqual(DURATION_WARN_MS)
+        expect(
+          durationVerdict(s),
+          `${presetId}/${s.id} at ${Math.round(soundingMs(s))}ms`,
+        ).toBe("ok")
       }
+    }
+  })
+
+  it("clears the floor where the ear stops integrating", () => {
+    // Below ~70ms a sound is heard as quieter than the same waveform held
+    // longer, so shortening past this buys nothing and costs audibility. This
+    // is the bound that caught Minimal's 31ms tap.
+    for (const presetId of PRESET_IDS) {
+      for (const s of setFor(presetId).sounds) {
+        expect(soundingMs(s), `${presetId}/${s.id}`).toBeGreaterThanOrEqual(
+          DURATION_BUDGET[s.tier].minMs,
+        )
+      }
+    }
+  })
+
+  it("gives each tier real room, not three shades of blip", () => {
+    // The whole point of the change: notable and alert sounds mark moments and
+    // are allowed to be figures. If the tiers collapse back together the
+    // budget has stopped meaning anything.
+    for (const presetId of PRESET_IDS) {
+      const set = setFor(presetId)
+      const ms = (id: SoundId) => soundingMs(set.sounds.find((s) => s.id === id)!)
+      expect(ms("notification"), presetId).toBeGreaterThan(ms("send") * 1.4)
+      expect(ms("send"), presetId).toBeGreaterThan(ms("tap") * 1.4)
     }
   })
 
@@ -313,8 +341,8 @@ describe("the duration budget", () => {
 })
 
 describe("frequency safety", () => {
-  it("keeps the default sets clear of the phone-speaker floor", () => {
-    // SPEC 10: below ~300Hz a micro-speaker gives up. No shipped preset may
+  it("keeps the default sets clear of the small-speaker floor", () => {
+    // SPEC 10: below ~300Hz a small speaker gives up. No shipped preset may
     // put a sound there by default.
     for (const presetId of PRESET_IDS) {
       for (const s of setFor(presetId).sounds) {

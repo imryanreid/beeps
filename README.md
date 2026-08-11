@@ -3,7 +3,8 @@
 A single-page tool at [beeps.studio](https://beeps.studio) that generates a
 coherent, restrained set of UI sounds — tap, toggle, success, error,
 notification and the rest — and hands them over in a form both people and
-coding agents can use.
+coding agents can use. Built for **web and desktop apps** first, with the
+guidance that mobile needs kept alongside.
 
 **Every sound is synthesized in your browser.** Oscillators, envelopes and
 filters. There is no sample library, no hosted audio, and nothing to license. A
@@ -33,8 +34,10 @@ Public, open source (MIT), and a portfolio piece. Third tool in the
   a rapid-fire test that triggers a sound ten times in a row, which is the
   fastest way to find out whether you can live with it.
 - **Restraint by default.** The set is loudness-normalized so nothing spikes,
-  durations are budgeted with a warning past 200 ms, and every export ships
-  behind a mute gate that starts off.
+  and every export ships behind a mute gate that starts off. Length is budgeted
+  **at both ends** per tier — too long overlaps the next interaction, and too
+  short is inaudible however far you turn it up, because the ear needs roughly
+  100–200 ms to register a sound properly.
 
 ## Export
 

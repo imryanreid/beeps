@@ -243,7 +243,7 @@ describe("loudness", () => {
     }
   })
 
-  it("penalises the phone-speaker floor, which is the point", () => {
+  it("penalises the small-speaker floor, which is the point", () => {
     // A 300Hz sound has to be much louder to seem as loud as a 1kHz one.
     expect(aWeightDb(300)).toBeLessThan(aWeightDb(1000) - 5)
   })

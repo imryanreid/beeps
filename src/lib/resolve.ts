@@ -344,8 +344,46 @@ export function soundingMs(sound: Sound): number {
   )
 }
 
-/** Past this, a UI sound starts overlapping the next interaction. */
-export const DURATION_WARN_MS = 200
+/**
+ * How long a sound in each tier may run — and how short it may be.
+ *
+ * The lower bound is the half nobody else checks, and it is a real limit
+ * rather than taste. The ear integrates loudness over roughly 100-200 ms, so a
+ * burst shorter than that is heard as quieter than the identical waveform held
+ * longer — by up to 10-15 dB at the very short end. Below about 70 ms you are
+ * not making a sound subtle, you are making it inaudible and getting no
+ * loudness back for the room you saved.
+ *
+ * The upper bound used to be a flat 200 ms for everything, which was wrong.
+ * That figure comes from `tap` firing on every button press, and applying it
+ * to `notification` was over-generalising from the noisiest case. Real shipped
+ * UI sound is far longer: macOS system alerts run 0.5-1.5 s, iOS send and
+ * receive around 0.5-0.8 s, Slack's ding about 0.5 s. Sounds reserved for
+ * moments — a save completing, a message arriving — are not competing with the
+ * next interaction, so they can afford to be figures rather than blips.
+ *
+ * Only the subtle tier still fires in succession, and only it keeps a tight
+ * ceiling.
+ */
+export const DURATION_BUDGET: Record<Tier, { minMs: number; maxMs: number }> = {
+  subtle: { minMs: 70, maxMs: 180 },
+  // 450, because a notable sound accompanies something the user started and is
+  // waiting on — it should not outlast their "did that work?" attention, which
+  // is about half a second.
+  notable: { minMs: 90, maxMs: 450 },
+  alert: { minMs: 120, maxMs: 700 },
+}
+
+export type DurationVerdict = "short" | "ok" | "long"
+
+/** Whether a sound sits inside its tier's window, and which way it misses. */
+export function durationVerdict(sound: Sound): DurationVerdict {
+  const budget = DURATION_BUDGET[sound.tier]
+  const ms = soundingMs(sound)
+  if (ms < budget.minMs) return "short"
+  if (ms > budget.maxMs) return "long"
+  return "ok"
+}
 
 /** Lowest and highest frequency the set touches — what the spectrum rail draws. */
 export function frequencySpan(sound: Sound): { minHz: number; maxHz: number } {

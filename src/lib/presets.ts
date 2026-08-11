@@ -98,9 +98,14 @@ export type PresetDef = {
    * How much the tier stretches decay and release. Attack is left alone — it
    * is character, and stretching it would just make an alert mushy.
    *
-   * Capped by the two-note sounds: `notification` starts its second note 40%
-   * in, so its total runs about 1.4x the envelope, and a shipped default must
-   * never trip this tool's own 200 ms warning.
+   * Every preset is written so `notable` is 1.0 — the tier's decay and release
+   * ARE the preset's, and subtle and alert scale around it. That makes the
+   * numbers above readable as the sound's real shape rather than as a base
+   * nobody hears.
+   *
+   * The ceiling is set by the two-note sounds: `notification` starts its second
+   * note 40% in, so its total runs about 1.4x the envelope — more where a layer
+   * has a `tail`. See DURATION_BUDGET.
    */
   envScale: Record<Tier, number>
 }
@@ -115,24 +120,24 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     blurb: "Rounded, low, unhurried. Nothing sharp, so it survives being heard all day.",
     suits: "the safe default",
     // 720 Hz rather than 880: warmer, and still high enough that `delete`'s
-    // octave drop lands near 360 Hz instead of inside the phone-speaker
+    // octave drop lands near 360 Hz instead of inside the small-speaker
     // rolloff.
     baseHz: 720,
     layers: solo("sine"),
     attackMs: 8,
-    decayMs: 90,
+    decayMs: 155,
     sustain: 0,
-    releaseMs: 40,
+    releaseMs: 67,
     sweepScale: 0.8,
     intrinsicSweep: 1.5,
-    sweepShare: 0.55,
+    sweepShare: 0.3,
     glide: "smooth",
     filterType: "lowpass",
     filterCutoffHz: 1400,
     filterQ: 0.7,
     noise: null,
     gain: { subtle: 0.18, notable: 0.3, alert: 0.4 },
-    envScale: { subtle: 0.55, notable: 0.75, alert: 1.0 },
+    envScale: { subtle: 0.46, notable: 1.0, alert: 1.65 },
   },
 
   minimal: {
@@ -145,19 +150,19 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     baseHz: 900,
     layers: solo("triangle"),
     attackMs: 2,
-    decayMs: 24,
+    decayMs: 115,
     sustain: 0,
-    releaseMs: 10,
+    releaseMs: 48,
     sweepScale: 0.5,
     intrinsicSweep: 1,
-    sweepShare: 0.4,
+    sweepShare: 0.22,
     glide: "smooth",
     filterType: "lowpass",
     filterCutoffHz: 2200,
     filterQ: 0.5,
     noise: null,
     gain: { subtle: 0.08, notable: 0.13, alert: 0.18 },
-    envScale: { subtle: 0.85, notable: 1.6, alert: 2.4 },
+    envScale: { subtle: 0.5, notable: 1.0, alert: 1.6 },
   },
 
   crisp: {
@@ -168,14 +173,14 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     baseHz: 880,
     layers: solo("square"),
     attackMs: 1,
-    decayMs: 35,
+    decayMs: 125,
     sustain: 0,
-    releaseMs: 15,
+    releaseMs: 44,
     sweepScale: 1.3,
     // 2, not 3. `notification`'s top note sits at +12, and an intrinsic glide
     // of 3 starts it at 880 x 2^(15/12) = 2093 Hz — inside the harsh band.
     intrinsicSweep: 2,
-    sweepShare: 0.35,
+    sweepShare: 0.14,
     glide: "smooth",
     filterType: "lowpass",
     filterCutoffHz: 5000,
@@ -184,7 +189,7 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     // amplitude. That ordering is what reads as a physical click.
     noise: { amount: 0.25, decayMs: 6 },
     gain: { subtle: 0.22, notable: 0.35, alert: 0.45 },
-    envScale: { subtle: 0.9, notable: 1.8, alert: 2.6 },
+    envScale: { subtle: 0.47, notable: 1.0, alert: 1.6 },
   },
 
   warm: {
@@ -202,19 +207,19 @@ export const PRESETS: Record<PresetId, PresetDef> = {
       { interval: 12, waveform: "sine", gain: 0.12 },
     ],
     attackMs: 12,
-    decayMs: 130,
+    decayMs: 190,
     sustain: 0,
-    releaseMs: 60,
+    releaseMs: 78,
     sweepScale: 0.65,
     intrinsicSweep: 1.2,
-    sweepShare: 0.6,
+    sweepShare: 0.34,
     glide: "smooth",
     filterType: "lowpass",
     filterCutoffHz: 900,
     filterQ: 0.6,
     noise: null,
     gain: { subtle: 0.2, notable: 0.32, alert: 0.42 },
-    envScale: { subtle: 0.38, notable: 0.52, alert: 0.66 },
+    envScale: { subtle: 0.42, notable: 1.0, alert: 1.5 },
   },
 
   bloopy: {
@@ -228,22 +233,22 @@ export const PRESETS: Record<PresetId, PresetDef> = {
       { interval: 12, waveform: "sine", gain: 0.18, tail: 0.7 },
     ],
     attackMs: 6,
-    decayMs: 150,
+    decayMs: 225,
     sustain: 0,
-    releaseMs: 70,
+    releaseMs: 89,
     // A deep, slow glide on a sine through a low resonant filter is the whole
     // "bloop". The resonance does real work here — at Q 0.7 this is just a soft
     // tone; at 3.5 the filter rings enough to give the drop a body.
     sweepScale: 1.8,
     intrinsicSweep: 4,
-    sweepShare: 0.5,
+    sweepShare: 0.42,
     glide: "smooth",
     filterType: "lowpass",
     filterCutoffHz: 720,
     filterQ: 3.5,
     noise: null,
     gain: { subtle: 0.2, notable: 0.3, alert: 0.38 },
-    envScale: { subtle: 0.34, notable: 0.46, alert: 0.6 },
+    envScale: { subtle: 0.4, notable: 1.0, alert: 1.45 },
   },
 
   glassy: {
@@ -261,20 +266,20 @@ export const PRESETS: Record<PresetId, PresetDef> = {
       { interval: 19, waveform: "sine", gain: 0.12, tail: 1.55 },
     ],
     attackMs: 3,
-    decayMs: 110,
+    decayMs: 140,
     sustain: 0,
-    releaseMs: 85,
+    releaseMs: 72,
     // Bells do not swoop. Almost all the character is in the overtones.
     sweepScale: 0.45,
     intrinsicSweep: 0.8,
-    sweepShare: 0.3,
+    sweepShare: 0.16,
     glide: "smooth",
     filterType: "lowpass",
     filterCutoffHz: 4500,
     filterQ: 2.5,
     noise: null,
     gain: { subtle: 0.16, notable: 0.26, alert: 0.34 },
-    envScale: { subtle: 0.29, notable: 0.39, alert: 0.5 },
+    envScale: { subtle: 0.42, notable: 1.0, alert: 1.35 },
   },
 
   playful: {
@@ -288,22 +293,22 @@ export const PRESETS: Record<PresetId, PresetDef> = {
       { interval: 12, waveform: "square", gain: 0.22 },
     ],
     attackMs: 2,
-    decayMs: 70,
+    decayMs: 150,
     sustain: 0,
-    releaseMs: 30,
+    releaseMs: 58,
     // The leaps are the joke. Everything the set says rises or falls, this says
     // twice as hard — without ever reversing a direction, because direction is
     // meaning even when the tone is silly.
     sweepScale: 1.7,
     intrinsicSweep: 3,
-    sweepShare: 0.35,
+    sweepShare: 0.2,
     glide: "smooth",
     filterType: "lowpass",
     filterCutoffHz: 3200,
     filterQ: 1.5,
     noise: null,
     gain: { subtle: 0.22, notable: 0.34, alert: 0.44 },
-    envScale: { subtle: 0.6, notable: 0.95, alert: 1.3 },
+    envScale: { subtle: 0.45, notable: 1.0, alert: 1.6 },
   },
 
   retro: {
@@ -317,12 +322,12 @@ export const PRESETS: Record<PresetId, PresetDef> = {
       { interval: 12, waveform: "square", gain: 0.32 },
     ],
     attackMs: 1,
-    decayMs: 45,
+    decayMs: 135,
     sustain: 0,
-    releaseMs: 10,
+    releaseMs: 44,
     sweepScale: 1.5,
     intrinsicSweep: 2,
-    sweepShare: 0.3,
+    sweepShare: 0.16,
     // The one preset that does not slide. Chiptune hardware had no portamento —
     // pitch was written to a register, so it jumped — and imitating that
     // limitation is most of what makes this read as retro rather than as a
@@ -333,7 +338,7 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     filterQ: 0.5,
     noise: { amount: 0.15, decayMs: 12 },
     gain: { subtle: 0.2, notable: 0.3, alert: 0.4 },
-    envScale: { subtle: 0.8, notable: 1.4, alert: 2.0 },
+    envScale: { subtle: 0.45, notable: 1.0, alert: 1.7 },
   },
 
   scifi: {
@@ -347,9 +352,9 @@ export const PRESETS: Record<PresetId, PresetDef> = {
       { interval: 7, waveform: "sawtooth", gain: 0.4 },
     ],
     attackMs: 1,
-    decayMs: 60,
+    decayMs: 150,
     sustain: 0,
-    releaseMs: 25,
+    releaseMs: 49,
     // Three times the declared interval, travelled fast. A `delete` that
     // normally falls an octave here starts two octaves up and plunges. The
     // sweep passes THROUGH the harsh band rather than sitting in it — which is
@@ -357,7 +362,7 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     // lands, not everywhere it has been.
     sweepScale: 3,
     intrinsicSweep: 6,
-    sweepShare: 0.25,
+    sweepShare: 0.1,
     glide: "smooth",
     filterType: "lowpass",
     filterCutoffHz: 3000,
@@ -366,7 +371,7 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     filterQ: 8,
     noise: { amount: 0.2, decayMs: 10 },
     gain: { subtle: 0.2, notable: 0.32, alert: 0.42 },
-    envScale: { subtle: 0.7, notable: 1.15, alert: 1.6 },
+    envScale: { subtle: 0.45, notable: 1.0, alert: 1.7 },
   },
 }
 

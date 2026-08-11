@@ -17,7 +17,7 @@
 import RUNTIME_SOURCE from "../runtime/beeps.js?raw"
 import { FAMILY_BLURB, FAMILY_NAME, familyAsText } from "../shared/tools"
 import { PRESETS, type PresetId } from "./presets.js"
-import { DURATION_WARN_MS, frequencySpan, soundingMs } from "./resolve.js"
+import { DURATION_BUDGET, frequencySpan, soundingMs } from "./resolve.js"
 import {
   PAIRS,
   SOUND_SPECS,
@@ -155,10 +155,17 @@ final class Beeps {
 
     private static var players: [String: AVAudioPlayer] = [:]
 
-    /// Call once at launch. .ambient means UI sound never stops someone's music.
+    /// Call once at launch.
+    ///
+    /// The session setup is iOS-only: AVAudioSession does not exist on macOS,
+    /// so an unguarded call here does not compile for a Mac target. .ambient
+    /// is what stops UI sound interrupting someone's music; macOS has no
+    /// equivalent, and AVAudioPlayer already mixes rather than ducking.
     static func configure() {
+        #if os(iOS) || os(tvOS) || os(watchOS)
         try? AVAudioSession.sharedInstance().setCategory(.ambient, mode: .default)
         try? AVAudioSession.sharedInstance().setActive(true)
+        #endif
     }
 
     static func play(_ name: String) {
@@ -284,8 +291,12 @@ export function toAgentMarkdown(set: SoundSet, url: string, warnings: string[] =
     "   load lands suspended, and every later `play()` silently does nothing.",
     "4. **One sound per event, not one per item.** A batch of ten arrivals plays",
     "   `receive` once.",
-    "5. **Respect the platform mute switch.** On iOS use the `.ambient` audio",
-    "   session category so UI sound never interrupts someone's music.",
+    "5. **On the web, do not play into a backgrounded tab.** Check",
+    '   `document.visibilityState === "visible"` before playing. A sound from a tab',
+    "   the user cannot see has no context and is indistinguishable from an ad.",
+    "6. **Respect the platform's own audio conventions.** On iOS use the",
+    "   `.ambient` audio session category so UI sound never interrupts someone's",
+    "   music. macOS has no equivalent session API — see the Native export.",
     "",
     "## How the set fits together",
     "",
@@ -308,15 +319,22 @@ export function toAgentMarkdown(set: SoundSet, url: string, warnings: string[] =
     "  falling fourth, which is already `notification`.",
     "- **Tiers move gain and duration together.** subtle < notable < alert. A louder",
     "  sound that is also longer is twice as intrusive.",
-    `- **Stay under ${DURATION_WARN_MS} ms.** Longer UI sounds overlap the next interaction and`,
-    "  make an interface feel slow in a way people blame on performance.",
+    `- **Length has a floor as well as a ceiling.** subtle ${DURATION_BUDGET.subtle.minMs}-${DURATION_BUDGET.subtle.maxMs} ms, notable ${DURATION_BUDGET.notable.minMs}-${DURATION_BUDGET.notable.maxMs} ms, alert ${DURATION_BUDGET.alert.minMs}-${DURATION_BUDGET.alert.maxMs} ms.`,
+    "  The floor is the one people miss: the ear integrates loudness over roughly",
+    "  100-200 ms, so a burst shorter than that is heard as quieter than the same",
+    "  waveform held longer — turning it up will not fix it. Only the subtle tier",
+    "  fires in quick succession, and only it keeps a tight ceiling.",
     "",
     "## Frequency guidance",
     "",
+    "This set is built for web and desktop apps first. Both zones still apply, but",
+    "their weighting flips by platform, so it is worth knowing which one you are",
+    "actually up against:",
+    "",
     "| Zone | Range | Why it matters |",
     "| --- | --- | --- |",
-    "| Phone-speaker floor | below ~300 Hz | Micro-speakers produce little output here. A sound with its energy down there is inaudible on the device most people hold. |",
-    "| Harsh band | 2–5 kHz | The ear's most sensitive region. Peaks here read as piercing at volumes that seem fine elsewhere. |",
+    "| Small-speaker floor | below ~300 Hz | Laptop and phone speakers produce little output here. It matters most for built-in speakers and barely at all on headphones. |",
+    "| Harsh band | 2–5 kHz | The ear's most sensitive region. **This is the one that bites on desktop**, where people are often on headphones or monitors that reproduce it faithfully and painfully. A phone speaker partly rolls it off for you; good playback does not. |",
     "| Dead air | above ~12 kHz | Inaudible to many adults and pure file size. |",
     "",
     `This set spans ${round(Math.min(...set.sounds.map((s) => frequencySpan(s).minHz)))} Hz to ${round(Math.max(...set.sounds.map((s) => frequencySpan(s).maxHz)))} Hz, clear of all three.`,
