@@ -23,6 +23,7 @@ import {
   PAIRS,
   SOUND_SPECS,
   isDerivedPitch,
+  pairDropSemitones,
   partnerOf,
   pitchCanonical,
   type Envelope,
@@ -139,6 +140,10 @@ export function envelopeMs(env: Envelope): number {
  * `success` and `notification` still sound like they belong to the preset.
  */
 export function sweepStartSemitones(v: NoteSpec, preset: PresetDef): number {
+  // A struck note holds its pitch. Applying the intrinsic glide to a `ding`
+  // made it fall by a semitone and a half, which read as descending — the
+  // opposite of what the positive sound in the set should do.
+  if (v.steady) return v.to
   if (v.from === v.to) return v.to + preset.intrinsicSweep
   return v.to + (v.from - v.to) * preset.sweepScale
 }
@@ -335,8 +340,12 @@ function buildVoices(
  * derived sound's own, so a `close` may legitimately be quieter or shorter
  * than its `open`.
  */
-function invertPitches(derived: Sound, canonical: Sound): Sound {
+function invertPitches(derived: Sound, canonical: Sound, dropSemitones: number): Sound {
   const source = canonical.voices.filter((v) => v.kind === "osc")
+  // The whole gesture drops, so the interval it travels is untouched — it just
+  // happens lower. That is what makes "off is lower than on" true of the sound
+  // and not only of its direction.
+  const drop = Math.pow(2, -dropSemitones / 12)
   let i = 0
   return {
     ...derived,
@@ -346,7 +355,11 @@ function invertPitches(derived: Sound, canonical: Sound): Sound {
       if (!from || from.kind !== "osc") return v
       return {
         ...v,
-        pitch: { ...v.pitch, startHz: from.pitch.endHz, endHz: from.pitch.startHz },
+        pitch: {
+          ...v.pitch,
+          startHz: clamp(Math.max(from.pitch.endHz * drop, MIN_MUSICAL_HZ), ...LIMITS.freqHz),
+          endHz: clamp(Math.max(from.pitch.startHz * drop, MIN_MUSICAL_HZ), ...LIMITS.freqHz),
+        },
       }
     }),
   }
@@ -427,7 +440,9 @@ export function resolve(config: SetConfig): SoundSet {
     if (pair.kind !== "inversion") continue
     const canonical = byId.get(pair.a)
     const derived = byId.get(pair.b)
-    if (canonical && derived) byId.set(pair.b, invertPitches(derived, canonical))
+    if (canonical && derived) {
+      byId.set(pair.b, invertPitches(derived, canonical, pair.dropSemitones ?? 0))
+    }
   }
 
   return { presetId: config.presetId, baseHz, sounds: built.map((s) => byId.get(s.id) ?? s) }
@@ -551,9 +566,12 @@ export function pairedEdits(
   // nothing, and the two can't be set to disagree.
   if (inverted && isDerivedPitch(id)) {
     const target = pitchCanonical(id)
+    // Undo the register drop on the way up, or every edit to the derived side
+    // would walk the canonical member down by another few semitones.
+    const lift = Math.pow(2, pairDropSemitones(id) / 12)
     const mirrored: SoundDelta = {}
-    if (startHz !== undefined) mirrored.endHz = startHz
-    if (endHz !== undefined) mirrored.startHz = endHz
+    if (startHz !== undefined) mirrored.endHz = startHz * lift
+    if (endHz !== undefined) mirrored.startHz = endHz * lift
     out.push({ id: target, patch: mirrored })
     return out
   }

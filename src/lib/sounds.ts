@@ -201,6 +201,16 @@ export type NoteSpec = {
    * fundamental under it has gone.
    */
   tail?: number
+  /**
+   * Hold this pitch exactly, ignoring the preset's intrinsic glide.
+   *
+   * A note that declares no interval normally takes a small downward glide so
+   * it still sounds like it belongs to its preset. A struck bell does not do
+   * that — it rings at one pitch — and applying the glide anyway made
+   * `notification` audibly descend, which fought the whole point of it being
+   * the positive one.
+   */
+  steady?: boolean
 }
 
 /** How far into a sound its second note lands, for the stepped shapes. */
@@ -220,8 +230,8 @@ export function notesFor(shape: Shape, center: number, travel: number): NoteSpec
     to: number,
     offsetShare = 0,
     gain = 1,
-    tail?: number,
-  ): NoteSpec => ({ from, to, offsetShare, gain, ...(tail ? { tail } : {}) })
+    extra: { tail?: number; steady?: boolean } = {},
+  ): NoteSpec => ({ from, to, offsetShare, gain, ...extra })
   switch (shape) {
     case "flat":
       return [note(center, center)]
@@ -230,7 +240,10 @@ export function notesFor(shape: Shape, center: number, travel: number): NoteSpec
       // it, and ringing on past it. That simultaneity is the whole difference
       // between a doorbell and an increment — two notes in sequence read as a
       // step, however short the gap.
-      return [note(center, center), note(center + travel, center + travel, 0, 0.45, 1.3)]
+      return [
+        note(center, center, 0, 1, { steady: true }),
+        note(center + travel, center + travel, 0, 0.45, { tail: 1.3, steady: true }),
+      ]
     case "ascend":
       return [
         note(center, center),
@@ -430,7 +443,26 @@ export function specFor(id: SoundId): SoundSpec {
 
 export type PairKind = "inversion" | "contrast"
 
-export type Pair = { a: SoundId; b: SoundId; kind: PairKind }
+export type Pair = {
+  a: SoundId
+  b: SoundId
+  kind: PairKind
+  /**
+   * How far below its twin the derived member sits, in semitones.
+   *
+   * The contour still mirrors exactly — same interval, opposite direction —
+   * but the whole gesture is transposed down. Without it a pair occupies one
+   * pitch range traversed both ways, which means the falling member *starts*
+   * higher than the rising one and reads as the higher of the two however it
+   * travels. Dropping it is what makes "on is higher, off is lower" true of
+   * the sound rather than only of its direction.
+   *
+   * Zero on send/receive: that pair reads as two halves of one exchange rather
+   * than as a state and its opposite, and dropping `receive` made it sound
+   * like a lesser event instead of a matching one.
+   */
+  dropSemitones?: number
+}
 
 /**
  * Sounds that are defined against each other.
@@ -449,9 +481,13 @@ export type Pair = { a: SoundId; b: SoundId; kind: PairKind }
  * derives from the other.
  */
 export const PAIRS: Pair[] = [
-  { a: "open", b: "close", kind: "inversion" },
-  { a: "send", b: "receive", kind: "inversion" },
-  { a: "toggle.on", b: "toggle.off", kind: "inversion" },
+  // A perfect fourth. Three semitones left `close` starting marginally ABOVE
+  // `open` — a falling gesture mirroring a rising one begins where the other
+  // ends, so a small drop moves the landing without moving the onset. Five
+  // puts it lower at both ends, which is what "off is lower" has to mean.
+  { a: "open", b: "close", kind: "inversion", dropSemitones: 5 },
+  { a: "send", b: "receive", kind: "inversion", dropSemitones: 0 },
+  { a: "toggle.on", b: "toggle.off", kind: "inversion", dropSemitones: 5 },
   { a: "success", b: "error", kind: "contrast" },
 ]
 
@@ -477,4 +513,10 @@ export function isDerivedPitch(id: SoundId): boolean {
 export function pitchCanonical(id: SoundId): SoundId {
   const p = PAIRS.find((x) => x.kind === "inversion" && x.b === id)
   return p ? p.a : id
+}
+
+/** How far `id` sits below its canonical twin. Zero unless it is a derived member. */
+export function pairDropSemitones(id: SoundId): number {
+  const p = PAIRS.find((x) => x.kind === "inversion" && x.b === id)
+  return p?.dropSemitones ?? 0
 }

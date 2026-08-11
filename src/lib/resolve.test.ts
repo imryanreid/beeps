@@ -24,7 +24,15 @@ import {
   sweepStartSemitones,
 } from "./resolve.js"
 import { PRESETS, PRESET_IDS } from "./presets.js"
-import { PAIRS, SOUND_IDS, SOUND_SPECS, notesFor, partnerOf, type SoundId } from "./sounds.js"
+import {
+  PAIRS,
+  SOUND_IDS,
+  SOUND_SPECS,
+  notesFor,
+  pairDropSemitones,
+  partnerOf,
+  type SoundId,
+} from "./sounds.js"
 
 const setFor = (presetId: (typeof PRESET_IDS)[number]) => resolve({ presetId, deltas: {} })
 
@@ -170,14 +178,50 @@ describe("direction is meaning, and every preset preserves it", () => {
   })
 })
 
+/** How much lower the derived member of a pair sits, as a frequency ratio. */
+const dropOf = (id: SoundId) => Math.pow(2, pairDropSemitones(id) / 12)
+
 describe("pairs", () => {
-  it("inverts toggle, open/close and send/receive", () => {
+  it("mirrors the contour exactly, transposed by the pair's drop", () => {
+    // The invariant is a mirror PLUS a constant transposition. Multiplying the
+    // derived member back up by its drop has to land exactly on the canonical
+    // member's opposite end — that constant ratio is what makes the two read
+    // as one gesture rather than as two sounds that happen to move oppositely.
     for (const p of PAIRS.filter((x) => x.kind === "inversion")) {
       const a = primary(p.a)
       const b = primary(p.b)
-      expect(a.pitch.startHz, `${p.a}/${p.b}`).toBeCloseTo(b.pitch.endHz, 4)
-      expect(a.pitch.endHz, `${p.a}/${p.b}`).toBeCloseTo(b.pitch.startHz, 4)
+      const lift = dropOf(p.b)
+      expect(b.pitch.endHz * lift, `${p.a}/${p.b} start`).toBeCloseTo(a.pitch.startHz, 4)
+      expect(b.pitch.startHz * lift, `${p.a}/${p.b} end`).toBeCloseTo(a.pitch.endHz, 4)
     }
+  })
+
+  it("puts the falling member of a state pair genuinely lower", () => {
+    // Not merely travelling downward — SITTING lower. Without the drop, a pair
+    // occupies one range traversed both ways, so the falling member starts
+    // above the rising one and reads as the higher of the two.
+    for (const [on, off] of [
+      ["open", "close"],
+      ["toggle.on", "toggle.off"],
+    ] as const) {
+      const a = primary(on)
+      const b = primary(off)
+      // Lower at BOTH ends, not just on the landing. A small drop moves where
+      // the falling member finishes without moving where it starts, which left
+      // `close` beginning above `open` and still reading as the higher one.
+      expect(b.pitch.startHz, `${off} onset`).toBeLessThan(a.pitch.startHz)
+      expect(b.pitch.endHz, `${off} landing`).toBeLessThan(a.pitch.endHz)
+    }
+  })
+
+  it("leaves send and receive at the same height", () => {
+    // That pair reads as two halves of one exchange rather than a state and
+    // its opposite, so dropping `receive` made it sound like a lesser event
+    // instead of a matching one.
+    expect(pairDropSemitones("receive")).toBe(0)
+    const send = primary("send")
+    const receive = primary("receive")
+    expect(receive.pitch.startHz).toBeCloseTo(send.pitch.endHz, 4)
   })
 
   it("stores a canonical pitch edit once — the partner derives from it", () => {
@@ -188,27 +232,37 @@ describe("pairs", () => {
     expect(edits).toEqual([{ id: "toggle.on", patch: { startHz: 500, endHz: 900 } }])
   })
 
-  it("routes a pitch edit on the derived side upstream, mirrored", () => {
+  it("routes a pitch edit on the derived side upstream, mirrored and lifted", () => {
+    // The drop is undone on the way up, or every edit to the derived side
+    // would walk the canonical member down by another few semitones.
+    const lift = dropOf("toggle.off")
     const edits = pairedEdits("toggle.off", { startHz: 900, endHz: 500 })
-    expect(edits).toEqual([{ id: "toggle.on", patch: { startHz: 500, endHz: 900 } }])
+    expect(edits).toHaveLength(1)
+    expect(edits[0].id).toBe("toggle.on")
+    expect(edits[0].patch.endHz).toBeCloseTo(900 * lift, 6)
+    expect(edits[0].patch.startHz).toBeCloseTo(500 * lift, 6)
   })
 
   it("keeps character on the sound that was edited, even on the derived side", () => {
     const edits = pairedEdits("toggle.off", { startHz: 900, attackMs: 25 })
     expect(edits).toContainEqual({ id: "toggle.off", patch: { attackMs: 25 } })
-    expect(edits).toContainEqual({ id: "toggle.on", patch: { endHz: 900 } })
+    const upstream = edits.find((e) => e.id === "toggle.on")!
+    expect(upstream.patch.endHz).toBeCloseTo(900 * dropOf("toggle.off"), 6)
   })
 
   it("survives editing the derived side end-to-end", () => {
+    // Set close's pitches directly; they should come back exactly, with open
+    // sitting a drop above.
     const config = applyEdit(DEFAULT_CONFIG, "close", { startHz: 900, endHz: 500 })
     const set = resolve(config)
     const open = set.sounds.find((s) => s.id === "open")!.voices[0]
     const close = set.sounds.find((s) => s.id === "close")!.voices[0]
     if (open.kind !== "osc" || close.kind !== "osc") throw new Error("expected osc")
+    const lift = dropOf("close")
     expect(close.pitch.startHz).toBeCloseTo(900, 4)
     expect(close.pitch.endHz).toBeCloseTo(500, 4)
-    expect(open.pitch.startHz).toBeCloseTo(500, 4)
-    expect(open.pitch.endHz).toBeCloseTo(900, 4)
+    expect(open.pitch.startHz).toBeCloseTo(500 * lift, 4)
+    expect(open.pitch.endHz).toBeCloseTo(900 * lift, 4)
   })
 
   it("does not mirror character — only direction", () => {
@@ -227,8 +281,9 @@ describe("pairs", () => {
     const open = set.sounds.find((s) => s.id === "open")!.voices[0]
     const close = set.sounds.find((s) => s.id === "close")!.voices[0]
     if (open.kind !== "osc" || close.kind !== "osc") throw new Error("expected osc")
-    expect(open.pitch.startHz).toBeCloseTo(close.pitch.endHz, 4)
-    expect(open.pitch.endHz).toBeCloseTo(close.pitch.startHz, 4)
+    const lift = dropOf("close")
+    expect(close.pitch.endHz * lift).toBeCloseTo(open.pitch.startHz, 4)
+    expect(close.pitch.startHz * lift).toBeCloseTo(open.pitch.endHz, 4)
   })
 })
 
@@ -681,10 +736,11 @@ describe("preset layers — the thing that makes presets instruments", () => {
         .find((s) => s.id === "close")!
         .voices.filter((v) => v.kind === "osc")
       expect(close.length, presetId).toBe(open.length)
+      const lift = dropOf("close")
       for (const [i, o] of open.entries()) {
         const c = close[i]
         if (o.kind !== "osc" || c.kind !== "osc") throw new Error("expected osc")
-        expect(o.pitch.startHz, `${presetId} layer ${i}`).toBeCloseTo(c.pitch.endHz, 4)
+        expect(c.pitch.endHz * lift, `${presetId} layer ${i}`).toBeCloseTo(o.pitch.startHz, 4)
       }
     }
   })

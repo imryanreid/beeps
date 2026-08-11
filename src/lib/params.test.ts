@@ -19,7 +19,7 @@ import {
 import { DEFAULT_CONFIG, applyEdit, resolve, type SetConfig } from "./resolve.js"
 import { DEFAULT_WAV, encodeWav, toDataUri, wavByteLength } from "./wav.js"
 import { aWeightDb, normalizationGains, peak, perceivedLevelDb, rms } from "./loudness.js"
-import { SOUND_IDS } from "./sounds.js"
+import { SOUND_IDS, pairDropSemitones } from "./sounds.js"
 
 // ---------------------------------------------------------------------------
 
@@ -125,8 +125,13 @@ describe("url params", () => {
     const open = set.sounds.find((s) => s.id === "open")!.voices[0]
     const close = set.sounds.find((s) => s.id === "close")!.voices[0]
     if (open.kind !== "osc" || close.kind !== "osc") throw new Error("expected osc")
-    expect(close.pitch.startHz).toBeCloseTo(900, 4)
-    expect(open.pitch.endHz).toBeCloseTo(900, 4)
+    // The URL rounds to whole hertz, so the derived side lands within one.
+    expect(close.pitch.startHz).toBeCloseTo(900, 0)
+    // open sits a pair-drop above, which the codec preserves through the lift.
+    expect(open.pitch.endHz / close.pitch.startHz).toBeCloseTo(
+      Math.pow(2, pairDropSemitones("close") / 12),
+      2,
+    )
   })
 
   it("does not write a delta the resolver would overwrite", () => {
