@@ -44,6 +44,7 @@ export type BeepsPlayer = {
   disable(): BeepsPlayer
   enabled: boolean
   play(id: SoundId | string): boolean
+  playOne(sound: Sound): boolean
   playSequence(ids: (SoundId | string)[], gapMs?: number): boolean
   dispose(): void
 }

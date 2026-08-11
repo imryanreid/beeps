@@ -33,6 +33,8 @@ export type AudioState = {
   setMuted: (v: boolean) => void
   /** Play a sound, starting the context first if this is the opening gesture. */
   play: (id: SoundId) => void
+  /** Play a sound from outside the current set — see the audition control. */
+  playOne: (sound: Sound) => void
   playSequence: (ids: SoundId[], gapMs: number) => void
   /** True while normalization is still rendering. */
   measuring: boolean
@@ -103,6 +105,8 @@ export function useAudio(rawSet: SoundSet): AudioState {
 
   const play = useCallback((id: SoundId) => arm()?.play(id), [arm])
 
+  const playOne = useCallback((sound: Sound) => arm()?.playOne(sound), [arm])
+
   const playSequence = useCallback(
     (ids: SoundId[], gapMs: number) => arm()?.playSequence(ids, gapMs),
     [arm],
@@ -115,5 +119,5 @@ export function useAudio(rawSet: SoundSet): AudioState {
     }
   }, [])
 
-  return { set, started, muted, setMuted, play, playSequence, measuring }
+  return { set, started, muted, setMuted, play, playOne, playSequence, measuring }
 }

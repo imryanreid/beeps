@@ -318,6 +318,37 @@ export function createBeeps(config, options) {
       return until > now
     },
 
+    /**
+     * Play a Sound object directly, rather than by id.
+     *
+     * The set-by-id path covers every normal case; this exists so a host can
+     * audition a sound that is not in its current set — comparing the same
+     * event across presets, say — without swapping the whole configuration to
+     * hear one of them.
+     */
+    playOne(sound) {
+      if (!enabled || !sound) return false
+      const c = context()
+      if (!c) return false
+      if (c.state === "suspended") c.resume()
+      const now = c.currentTime
+      reap(now)
+      if (active.length >= MAX_SOUNDS) {
+        const oldest = active.shift()
+        for (const node of oldest.nodes) {
+          try {
+            node.stop(now)
+          } catch {
+            /* already stopped */
+          }
+        }
+      }
+      const nodes = []
+      const until = scheduleSound(c, c.destination, sound, now, (node) => nodes.push(node))
+      active.push({ nodes, until })
+      return until > now
+    },
+
     /** Every sound in the set, in order, with a gap between each. */
     playSequence(ids, gapMs) {
       if (!enabled) return false

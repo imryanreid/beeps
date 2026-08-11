@@ -30,21 +30,27 @@ import { Label, PanelTitle } from "../shared/components/Label"
 import Segmented from "../shared/components/Segmented"
 import { cn } from "../shared/utils"
 import { HOVER_LIFT } from "../shared/motion"
-import type { SoundId } from "../lib/sounds"
+import Audition from "./Audition"
+import type { Sound, SoundId } from "../lib/sounds"
 
 type PlayFn = (id: SoundId) => void
 
 export default function Preview({
   play,
+  playOne,
   playSequence,
   started,
   muted,
 }: {
   play: PlayFn
+  playOne: (sound: Sound) => void
   playSequence: (ids: SoundId[], gapMs: number) => void
   started: boolean
   muted: boolean
 }) {
+  // Shared between rapid-fire and audition — you almost always want to hear
+  // the same sound hammered and then compared across characters.
+  const [focusId, setFocusId] = useState<SoundId>("tap")
   return (
     <section className="mb-12">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -52,8 +58,9 @@ export default function Preview({
         {!started && <GestureHint />}
       </div>
 
-      <div className={cn("grid gap-3 lg:grid-cols-2", muted && "opacity-50")}>
-        <RapidFire play={play} />
+      <div className={cn("grid gap-3 lg:grid-cols-3", muted && "opacity-50")}>
+        <RapidFire play={play} soundId={focusId} onSoundId={setFocusId} />
+        <Audition soundId={focusId} onSoundId={setFocusId} playOne={playOne} />
         <Sequence playSequence={playSequence} />
       </div>
 
@@ -100,8 +107,15 @@ const RAPID_COUNT = 10
  * different sound, and it hides the exact problem this exists to find, which is
  * a release tail stacking into mush.
  */
-function RapidFire({ play }: { play: PlayFn }) {
-  const [id, setId] = useState<SoundId>("tap")
+function RapidFire({
+  play,
+  soundId: id,
+  onSoundId: setId,
+}: {
+  play: PlayFn
+  soundId: SoundId
+  onSoundId: (v: SoundId) => void
+}) {
   const [intervalMs, setIntervalMs] = useState(120)
   const [firing, setFiring] = useState(false)
   const timers = useRef<number[]>([])

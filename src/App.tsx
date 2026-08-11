@@ -166,6 +166,7 @@ export default function App() {
 
       <Preview
         play={audio.play}
+        playOne={audio.playOne}
         playSequence={audio.playSequence}
         started={audio.started}
         muted={audio.muted}
