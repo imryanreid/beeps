@@ -157,16 +157,38 @@ export const VALENCE: Record<
 > = {
   // Brighter and clean. Nothing added — consonance is the absence of the
   // beating below, not an extra voice.
-  positive: { cutoffScale: 1.3, qScale: 1, dissonanceSemitones: null },
+  //
+  // The spread is deliberately narrow. At 1.3 against 1.0 the positive half of
+  // a pair audibly outshone its neutral twin, so `open` and `close` read as
+  // happy-and-sad rather than as two halves of one gesture. Valence should
+  // colour a sound, not grade it.
+  positive: { cutoffScale: 1.18, qScale: 1, dissonanceSemitones: null },
   neutral: { cutoffScale: 1, qScale: 1, dissonanceSemitones: null },
   // Darker, harder, and a voice a semitone away so the two beat against each
   // other. That roughness is unpleasant in exactly the way a failure should
   // be, and it gets there without being loud.
-  negative: { cutoffScale: 0.72, qScale: 1.5, dissonanceSemitones: -1 },
+  negative: { cutoffScale: 0.78, qScale: 1.45, dissonanceSemitones: -1 },
 }
 
-/** Where the filter travels for the shapes that sweep it. */
-const FILTER_SWEEP = { open: 2.6, close: 0.42 }
+/**
+ * Where the filter travels for `expand` and `collapse`.
+ *
+ * **Deliberately not symmetric**, and this is the one place the pair rule is
+ * broken on purpose. Opening and closing a filter are not perceptual mirrors:
+ * a wide sweep upward reads as blooming, and the same sweep downward reads as
+ * being smothered — a power-cut rather than a lid settling. Mirrored at 6:1
+ * both ways, `close` sounded like an accident.
+ *
+ * So `expand` blooms and `collapse` merely settles. The DIRECTION still
+ * mirrors, which is what carries the meaning; the magnitude does not, which is
+ * what keeps `close` neutral instead of sounding like a failure.
+ */
+const FILTER_SWEEP = {
+  expandFrom: 0.6,
+  expandTo: 2.3,
+  collapseFrom: 1.25,
+  collapseTo: 0.72,
+}
 
 /**
  * The authored envelope for a sound: the preset's shape, scaled to the tier,
@@ -239,8 +261,9 @@ function buildVoices(
     for (const [index, { layer, gain }] of layers.entries()) {
       const shift = Math.pow(2, layer.interval / 12)
       // `tail` lets an upper partial outlast the note under it, which is what
-      // a bell does and the only reason Glassy sounds like glass.
-      const tail = layer.tail ?? 1
+      // a bell does and the only reason Glassy sounds like glass. A note can
+      // ask for one too — that is how `ding`'s overtone rings on.
+      const tail = (layer.tail ?? 1) * (note.tail ?? 1)
       voices.push({
         kind: "osc",
         waveform: layer.waveform,
@@ -352,16 +375,16 @@ function buildFilter(
   if (opensFilter(spec.shape)) {
     return {
       type: preset.filterType,
-      cutoffHz: clamp(cutoffHz * FILTER_SWEEP.close, ...LIMITS.cutoffHz),
-      endCutoffHz: clamp(cutoffHz * FILTER_SWEEP.open, ...LIMITS.cutoffHz),
+      cutoffHz: clamp(cutoffHz * FILTER_SWEEP.expandFrom, ...LIMITS.cutoffHz),
+      endCutoffHz: clamp(cutoffHz * FILTER_SWEEP.expandTo, ...LIMITS.cutoffHz),
       q,
     }
   }
   if (closesFilter(spec.shape)) {
     return {
       type: preset.filterType,
-      cutoffHz: clamp(cutoffHz * FILTER_SWEEP.open, ...LIMITS.cutoffHz),
-      endCutoffHz: clamp(cutoffHz * FILTER_SWEEP.close, ...LIMITS.cutoffHz),
+      cutoffHz: clamp(cutoffHz * FILTER_SWEEP.collapseFrom, ...LIMITS.cutoffHz),
+      endCutoffHz: clamp(cutoffHz * FILTER_SWEEP.collapseTo, ...LIMITS.cutoffHz),
       q,
     }
   }

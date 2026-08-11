@@ -169,15 +169,21 @@ export type Register = "lower" | "mid" | "higher"
  * another, which is the iMessage send-and-receive gesture. Both go the same
  * direction and they sound nothing alike, which is the point of having both.
  *
+ * `ding` is one note struck with an overtone sounding *alongside* it and
+ * ringing on past it. The simultaneity is the whole difference between a
+ * doorbell and an increment — two notes in sequence read as a step however
+ * short the gap between them.
+ *
  * `expand`/`collapse` add a filter sweep on top of the pitch move: the sound
  * opens up as it rises, or closes down as it falls. A menu appearing should
- * feel like it widens, not merely like it goes up.
+ * feel like it widens, not merely like it goes up. They are the one pair whose
+ * mirror is deliberately NOT symmetric in magnitude — see FILTER_SWEEP.
  *
  * Every "down" shape is the exact mirror of its "up" twin, which is what makes
  * the pairs inversions by construction rather than by careful authoring.
  */
 export type Shape =
-  "flat" | "ascend" | "descend" | "scoopUp" | "scoopDown" | "expand" | "collapse"
+  "flat" | "ding" | "ascend" | "descend" | "scoopUp" | "scoopDown" | "expand" | "collapse"
 
 /** One note of a resolved shape, in semitones from the set's base. */
 export type NoteSpec = {
@@ -187,6 +193,14 @@ export type NoteSpec = {
   offsetShare: number
   /** Relative level, 0–1, before normalization. */
   gain: number
+  /**
+   * Multiplier on decay and release for this note alone.
+   *
+   * Above 1 the note rings on past its siblings, which is what separates a
+   * struck bell from a chord: the overtone is still sounding when the
+   * fundamental under it has gone.
+   */
+  tail?: number
 }
 
 /** How far into a sound its second note lands, for the stepped shapes. */
@@ -201,15 +215,22 @@ export const SECOND_NOTE_SHARE = 0.35
  * first time this was built.
  */
 export function notesFor(shape: Shape, center: number, travel: number): NoteSpec[] {
-  const note = (from: number, to: number, offsetShare = 0, gain = 1): NoteSpec => ({
-    from,
-    to,
-    offsetShare,
-    gain,
-  })
+  const note = (
+    from: number,
+    to: number,
+    offsetShare = 0,
+    gain = 1,
+    tail?: number,
+  ): NoteSpec => ({ from, to, offsetShare, gain, ...(tail ? { tail } : {}) })
   switch (shape) {
     case "flat":
       return [note(center, center)]
+    case "ding":
+      // One note struck, with an overtone sounding WITH it rather than after
+      // it, and ringing on past it. That simultaneity is the whole difference
+      // between a doorbell and an increment — two notes in sequence read as a
+      // step, however short the gap.
+      return [note(center, center), note(center + travel, center + travel, 0, 0.45, 1.3)]
     case "ascend":
       return [
         note(center, center),
@@ -270,10 +291,15 @@ export const SOUND_SPECS: SoundSpec[] = [
     id: "notification",
     valence: "positive",
     register: "higher",
-    shape: "ascend",
+    // A ding, not an increment. Two notes in sequence read as a step, and it
+    // was reading as a quieter cousin of `success` — which ascends through the
+    // same pitches. Struck-with-an-overtone is unmistakably its own thing.
+    shape: "ding",
     tier: "alert",
-    center: 9,
-    travel: 3,
+    center: 7,
+    // A fifth. That is the third harmonic, so the overtone sits where a real
+    // struck object would put it.
+    travel: 7,
     when: "An interruption that is genuinely new information.",
     whenNot:
       "Anything the user can see happening. Never when the originating tab is focused and the item is already on screen.",
@@ -370,12 +396,20 @@ export const SOUND_SPECS: SoundSpec[] = [
   },
   {
     id: "delete",
-    valence: "negative",
+    // NEUTRAL, not negative. It was the only other negative sound, so it
+    // inherited `error`'s dissonant voice and dark, hard filter and came out
+    // as error-plus-a-step-down. Removing something is not a failure — it is
+    // a thing being set down, and it should sound like one.
+    valence: "neutral",
     register: "mid",
-    shape: "descend",
-    tier: "alert",
-    center: -12,
-    travel: 12,
+    // A continuous fall rather than a stepped one, which is the difference
+    // between putting something down and announcing two facts about it.
+    shape: "scoopDown",
+    tier: "notable",
+    center: -7,
+    travel: 7,
+    // The transient is the thud of it landing. Worth keeping even though the
+    // valence no longer asks for one.
     forceNoise: true,
     when: "Destructive removal that has actually happened.",
     whenNot: "Opening a confirmation dialog — that is `open`.",

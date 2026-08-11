@@ -80,14 +80,33 @@ describe("intervals", () => {
     }
   })
 
-  it("drops delete a full octave, in two steps", () => {
-    // `descend` is stepped, so delete is two notes: base, then an octave down.
-    // That is what "flat, then descends" means — not a glide.
-    const notes = soundIn("soft", "delete").voices.filter((v) => v.kind === "osc")
+  it("sets delete down rather than announcing it", () => {
+    // One continuous fall, neutral, no dissonance. It was `negative` and
+    // stepped, which made it error-plus-a-step — the only other negative sound
+    // inheriting the same beating voice and dark filter.
+    const del = soundIn("soft", "delete")
+    const notes = del.voices.filter((v) => v.kind === "osc")
+    expect(notes).toHaveLength(1)
+    if (notes[0].kind !== "osc") throw new Error("expected osc")
+    expect(notes[0].pitch.endHz).toBeLessThan(notes[0].pitch.startHz)
+    // Neutral now: the same cutoff a neutral sound gets, not error's darker one.
+    expect(del.filter.cutoffHz).toBeCloseTo(soundIn("soft", "tap").filter.cutoffHz, 4)
+    // The thud of it landing survives the valence change.
+    expect(del.voices.some((v) => v.kind === "noise")).toBe(true)
+  })
+
+  it("strikes notification rather than stepping it", () => {
+    // A ding: the overtone sounds WITH the note, not after it. Two notes in
+    // sequence read as an increment, and it was reading as a quieter `success`.
+    const notes = soundIn("soft", "notification").voices.filter((v) => v.kind === "osc")
+    expect(notes).toHaveLength(2)
     if (notes[0].kind !== "osc" || notes[1].kind !== "osc") throw new Error("expected osc")
-    expect(notes[0].pitch.endHz).toBeCloseTo(PRESETS.soft.baseHz, 4)
-    expect(notes[1].pitch.endHz).toBeCloseTo(PRESETS.soft.baseHz / 2, 4)
-    expect(notes[1].startOffsetMs).toBeGreaterThan(0)
+    expect(notes[1].startOffsetMs).toBe(0)
+    // A fifth up — the third harmonic, where a struck object puts it.
+    const semis = Math.log2(notes[1].pitch.endHz / notes[0].pitch.endHz) * 12
+    expect(semis).toBeCloseTo(7, 1)
+    // And it rings on past the note underneath.
+    expect(notes[1].env.decayMs).toBeGreaterThan(notes[0].env.decayMs)
   })
 
   it("steps success up a perfect fourth", () => {
@@ -286,7 +305,7 @@ describe("the duration budget", () => {
     for (const presetId of PRESET_IDS) {
       const set = setFor(presetId)
       const ms = (id: SoundId) => soundingMs(set.sounds.find((s) => s.id === id)!)
-      expect(ms("notification"), presetId).toBeGreaterThan(ms("send") * 1.4)
+      expect(ms("error"), presetId).toBeGreaterThan(ms("send") * 1.3)
       expect(ms("send"), presetId).toBeGreaterThan(ms("tap") * 1.4)
     }
   })
@@ -295,8 +314,10 @@ describe("the duration budget", () => {
     for (const presetId of PRESET_IDS) {
       const set = setFor(presetId)
       const len = (id: SoundId) => set.sounds.find((s) => s.id === id)!.durationMs
+      // One representative per tier. `delete` moved to notable, so it is now
+      // the same length as `send` — comparing those two proved nothing.
       expect(len("tap"), presetId).toBeLessThan(len("send"))
-      expect(len("send"), presetId).toBeLessThan(len("delete"))
+      expect(len("send"), presetId).toBeLessThan(len("error"))
     }
   })
 
@@ -550,13 +571,17 @@ describe("the three axes", () => {
     expect(open.endCutoffHz).toBeGreaterThan(open.cutoffHz)
     expect(close.endCutoffHz).toBeLessThan(close.cutoffHz)
 
-    // The DIRECTION mirrors; the absolute values do not, and should not.
-    // `open` is positive and `close` neutral, so open sits brighter throughout.
-    // That is the pair rule working as designed — contour inverts exactly,
-    // character is free to differ.
-    const ratio = (f: typeof open) => f.endCutoffHz! / f.cutoffHz
-    expect(ratio(open)).toBeCloseTo(1 / ratio(close), 4)
-    expect(open.cutoffHz).toBeGreaterThan(close.endCutoffHz!)
+    // The DIRECTION mirrors; the magnitude deliberately does not. Opening and
+    // closing a filter are not perceptual mirrors — a wide sweep upward blooms,
+    // the same sweep downward sounds smothered, and mirrored at 6:1 both ways
+    // `close` came out sounding like an accident. So expand blooms and collapse
+    // merely settles.
+    const span = (f: typeof open) => f.endCutoffHz! / f.cutoffHz
+    expect(span(open)).toBeGreaterThan(2)
+    expect(span(close)).toBeGreaterThan(0.5)
+    expect(span(close)).toBeLessThan(1)
+    // The collapse travels a shorter distance than the bloom, in octaves.
+    expect(Math.abs(Math.log2(span(close)))).toBeLessThan(Math.log2(span(open)))
 
     expect(soundIn("soft", "tap").filter.endCutoffHz).toBeUndefined()
   })

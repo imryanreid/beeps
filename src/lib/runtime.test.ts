@@ -181,9 +181,9 @@ describe("the graph", () => {
     const ctx = fake()
     scheduleSound(ctx, ctx.destination, soundBy("delete"), 0)
     const filter = ctx.filters[0]
-    // delete is two stepped notes, plus the dissonant voice its negative
-    // valence adds, plus a noise transient it insists on.
-    expect(ctx.oscillators).toHaveLength(3)
+    // delete is one continuous fall plus the noise thud of it landing. It is
+    // neutral now, so no dissonant voice rides along.
+    expect(ctx.oscillators).toHaveLength(1)
     expect(ctx.sources).toHaveLength(1)
     // Master gain is the one connected to the destination.
     const master = ctx.gains.find((g) => g.connections.includes(ctx.destination))!
@@ -199,7 +199,7 @@ describe("the graph", () => {
     scheduleSound(
       ctx,
       ctx.destination,
-      retro.sounds.find((s) => s.id === "delete")!,
+      retro.sounds.find((s) => s.id === "send")!,
       0,
     )
     const osc = ctx.oscillators[0]
