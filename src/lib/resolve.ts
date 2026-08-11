@@ -31,7 +31,11 @@ import {
   type Tier,
   type SoundSet,
   type Voice,
-  type VoiceSpec,
+  type Valence,
+  type NoteSpec,
+  notesFor,
+  opensFilter,
+  closesFilter,
 } from "./sounds.js"
 import {
   DEFAULT_PRESET,
@@ -88,6 +92,19 @@ export const LIMITS = {
 
 export const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v))
 
+/**
+ * The lowest note the derivation will produce, whatever a preset asks for.
+ *
+ * A preset's `sweepScale` multiplies the semantic interval, and an aggressive
+ * one on an already-low sound compounds: Sci-Fi's 3x on `send`'s seven-semitone
+ * scoop put its start at nineteen semitones below base — 274 Hz, inside the
+ * small-speaker rolloff and effectively silent on a laptop. Clamping here means
+ * a preset can be as dramatic as it likes without any sound diving out of
+ * audibility, and it applies to every preset rather than being tuned away on
+ * the one that happened to trip it.
+ */
+export const MIN_MUSICAL_HZ = 330
+
 /** Equal temperament. The whole set is intervals from one base. */
 export const semitonesToHz = (baseHz: number, semitones: number): number =>
   baseHz * Math.pow(2, semitones / 12)
@@ -121,10 +138,35 @@ export function envelopeMs(env: Envelope): number {
  * preset's intrinsic downward glide instead, which is how the steady notes in
  * `success` and `notification` still sound like they belong to the preset.
  */
-export function sweepStartSemitones(v: VoiceSpec, preset: PresetDef): number {
+export function sweepStartSemitones(v: NoteSpec, preset: PresetDef): number {
   if (v.from === v.to) return v.to + preset.intrinsicSweep
   return v.to + (v.from - v.to) * preset.sweepScale
 }
+
+/**
+ * What being good, bad or neither does to a sound.
+ *
+ * Deliberately NOT pitch — the shape owns that. Valence owns harmony and
+ * timbre, so `error` is dissonant because it is negative rather than because
+ * somebody wrote a dissonance into that one sound. Add a twelfth negative
+ * sound and it gets the same treatment without touching this function.
+ */
+export const VALENCE: Record<
+  Valence,
+  { cutoffScale: number; qScale: number; dissonanceSemitones: number | null }
+> = {
+  // Brighter and clean. Nothing added — consonance is the absence of the
+  // beating below, not an extra voice.
+  positive: { cutoffScale: 1.3, qScale: 1, dissonanceSemitones: null },
+  neutral: { cutoffScale: 1, qScale: 1, dissonanceSemitones: null },
+  // Darker, harder, and a voice a semitone away so the two beat against each
+  // other. That roughness is unpleasant in exactly the way a failure should
+  // be, and it gets there without being loud.
+  negative: { cutoffScale: 0.72, qScale: 1.5, dissonanceSemitones: -1 },
+}
+
+/** Where the filter travels for the shapes that sweep it. */
+const FILTER_SWEEP = { open: 2.6, close: 0.42 }
 
 /**
  * The authored envelope for a sound: the preset's shape, scaled to the tier,
@@ -165,7 +207,8 @@ function buildVoices(
   durationMs: number,
   delta: SoundDelta,
 ): Voice[] {
-  const primary = spec.voices[0]
+  const notes = notesFor(spec.shape, spec.center, spec.travel)
+  const primary = notes[0]
   const derivedStart = semitonesToHz(baseHz, sweepStartSemitones(primary, preset))
   const derivedEnd = semitonesToHz(baseHz, primary.to)
 
@@ -188,7 +231,7 @@ function buildVoices(
   // which interval, rising or falling — and the layer carries the character.
   // Keeping them separate is what lets a preset change the instrument without
   // touching what any sound MEANS.
-  for (const [i, note] of spec.voices.entries()) {
+  for (const [i, note] of notes.entries()) {
     const noteStart =
       i === 0 ? startHz : semitonesToHz(baseHz, sweepStartSemitones(note, preset)) * ratio
     const noteEnd = i === 0 ? endHz : semitonesToHz(baseHz, note.to) * ratio
@@ -202,8 +245,10 @@ function buildVoices(
         kind: "osc",
         waveform: layer.waveform,
         pitch: {
-          startHz: clamp(noteStart * shift, ...LIMITS.freqHz),
-          endHz: clamp(noteEnd * shift, ...LIMITS.freqHz),
+          // The layer shift is applied before the floor so an octave-up layer
+          // is never dragged down by a limit meant for the note beneath it.
+          startHz: clamp(Math.max(noteStart * shift, MIN_MUSICAL_HZ), ...LIMITS.freqHz),
+          endHz: clamp(Math.max(noteEnd * shift, MIN_MUSICAL_HZ), ...LIMITS.freqHz),
           sweepMs,
         },
         env:
@@ -214,6 +259,26 @@ function buildVoices(
         startOffsetMs: note.offsetShare * durationMs,
         ...(layer.detuneCents ? { detuneCents: layer.detuneCents } : {}),
         layer: index,
+      })
+    }
+  }
+
+  // Negative valence beats a second voice against the first. It rides the
+  // primary note only — spreading it across every note of a two-note figure
+  // would turn a sour edge into a cluster.
+  const dissonance = VALENCE[spec.valence].dissonanceSemitones
+  if (dissonance !== null) {
+    const shift = Math.pow(2, dissonance / 12)
+    const first = voices.find((v) => v.kind === "osc")
+    if (first && first.kind === "osc") {
+      voices.push({
+        ...first,
+        pitch: {
+          ...first.pitch,
+          startHz: clamp(first.pitch.startHz * shift, ...LIMITS.freqHz),
+          endHz: clamp(first.pitch.endHz * shift, ...LIMITS.freqHz),
+        },
+        gain: first.gain * 0.85,
       })
     }
   }
@@ -264,6 +329,45 @@ function invertPitches(derived: Sound, canonical: Sound): Sound {
   }
 }
 
+/**
+ * The filter, carrying both valence and the shape's sweep.
+ *
+ * `expand` and `collapse` are the only shapes that move it. They start where a
+ * static filter would sit and travel outward or inward, so `open` genuinely
+ * opens rather than just going up — which is the difference between a menu
+ * that appears and one that merely rises.
+ */
+function buildFilter(
+  spec: (typeof SOUND_SPECS)[number],
+  preset: PresetDef,
+  delta: SoundDelta,
+): Sound["filter"] {
+  const valence = VALENCE[spec.valence]
+  const cutoffHz = clamp(
+    delta.cutoffHz ?? preset.filterCutoffHz * valence.cutoffScale,
+    ...LIMITS.cutoffHz,
+  )
+  const q = clamp(delta.q ?? preset.filterQ * valence.qScale, ...LIMITS.q)
+
+  if (opensFilter(spec.shape)) {
+    return {
+      type: preset.filterType,
+      cutoffHz: clamp(cutoffHz * FILTER_SWEEP.close, ...LIMITS.cutoffHz),
+      endCutoffHz: clamp(cutoffHz * FILTER_SWEEP.open, ...LIMITS.cutoffHz),
+      q,
+    }
+  }
+  if (closesFilter(spec.shape)) {
+    return {
+      type: preset.filterType,
+      cutoffHz: clamp(cutoffHz * FILTER_SWEEP.open, ...LIMITS.cutoffHz),
+      endCutoffHz: clamp(cutoffHz * FILTER_SWEEP.close, ...LIMITS.cutoffHz),
+      q,
+    }
+  }
+  return { type: preset.filterType, cutoffHz, q }
+}
+
 /** Preset + deltas → the finished set. `normalizedGain` is filled in later. */
 export function resolve(config: SetConfig): SoundSet {
   const preset = PRESETS[config.presetId] ?? PRESETS[DEFAULT_PRESET]
@@ -284,14 +388,7 @@ export function resolve(config: SetConfig): SoundSet {
     return {
       id: spec.id,
       voices,
-      filter: {
-        type: preset.filterType,
-        cutoffHz: clamp(
-          delta.cutoffHz ?? preset.filterCutoffHz * (spec.cutoffScale ?? 1),
-          ...LIMITS.cutoffHz,
-        ),
-        q: clamp(delta.q ?? preset.filterQ, ...LIMITS.q),
-      },
+      filter: buildFilter(spec, preset, delta),
       durationMs,
       glide: preset.glide,
       tier: spec.tier,

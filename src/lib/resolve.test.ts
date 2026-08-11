@@ -16,6 +16,7 @@ import {
   envelopeFor,
   envelopeMs,
   frequencySpan,
+  MIN_MUSICAL_HZ,
   pairedEdits,
   resolve,
   semitonesToHz,
@@ -23,7 +24,7 @@ import {
   sweepStartSemitones,
 } from "./resolve.js"
 import { PRESETS, PRESET_IDS } from "./presets.js"
-import { PAIRS, SOUND_IDS, SOUND_SPECS, partnerOf, type SoundId } from "./sounds.js"
+import { PAIRS, SOUND_IDS, SOUND_SPECS, notesFor, partnerOf, type SoundId } from "./sounds.js"
 
 const setFor = (presetId: (typeof PRESET_IDS)[number]) => resolve({ presetId, deltas: {} })
 
@@ -60,9 +61,9 @@ describe("the set", () => {
 
 describe("intervals", () => {
   it("derives every frequency from the one base", () => {
-    // tap's primary ends 2 semitones below base, by its spec.
+    // tap is flat at the base itself — neutral, mid, no travel.
     const base = PRESETS.soft.baseHz
-    expect(primary("tap").pitch.endHz).toBeCloseTo(semitonesToHz(base, -2), 4)
+    expect(primary("tap").pitch.endHz).toBeCloseTo(semitonesToHz(base, 0), 4)
   })
 
   it("moves the whole set when the base moves", () => {
@@ -79,21 +80,24 @@ describe("intervals", () => {
     }
   })
 
-  it("keeps the octave in delete and the fourth in success", () => {
-    // delete *lands* an octave below base. The sweep it travels is narrower
-    // than an octave on any preset that flattens sweeps, which is the point of
-    // sweepScale — the landing note carries the meaning, the sweep carries the
-    // character.
-    const del = primary("delete")
-    expect(del.pitch.endHz).toBeCloseTo(PRESETS.soft.baseHz / 2, 4)
-    expect(del.pitch.startHz).toBeGreaterThan(del.pitch.endHz)
+  it("drops delete a full octave, in two steps", () => {
+    // `descend` is stepped, so delete is two notes: base, then an octave down.
+    // That is what "flat, then descends" means — not a glide.
+    const notes = soundIn("soft", "delete").voices.filter((v) => v.kind === "osc")
+    if (notes[0].kind !== "osc" || notes[1].kind !== "osc") throw new Error("expected osc")
+    expect(notes[0].pitch.endHz).toBeCloseTo(PRESETS.soft.baseHz, 4)
+    expect(notes[1].pitch.endHz).toBeCloseTo(PRESETS.soft.baseHz / 2, 4)
+    expect(notes[1].startOffsetMs).toBeGreaterThan(0)
+  })
 
-    // success is two notes a perfect fourth apart: +4 then +9.
+  it("steps success up a perfect fourth", () => {
     const notes = soundIn("soft", "success").voices.filter((v) => v.kind === "osc")
-    expect(notes).toHaveLength(2)
     if (notes[0].kind !== "osc" || notes[1].kind !== "osc") throw new Error("expected osc")
     const interval = Math.log2(notes[1].pitch.endHz / notes[0].pitch.endHz) * 12
     expect(interval).toBeCloseTo(5, 1)
+    // Ascending, and the second note lands late — a figure, not a chord.
+    expect(notes[1].pitch.endHz).toBeGreaterThan(notes[0].pitch.endHz)
+    expect(notes[1].startOffsetMs).toBeGreaterThan(0)
   })
 
   it("makes error dissonant — two voices about a semitone apart", () => {
@@ -445,6 +449,131 @@ describe("deltas", () => {
       2000,
     )
     expect(tap.voices[0].env.attackMs).toBeGreaterThan(0)
+  })
+})
+
+describe("the three axes", () => {
+  it("orders the set the way the design language reads", () => {
+    expect(SOUND_IDS).toEqual([
+      "tap",
+      "notification",
+      "open",
+      "close",
+      "send",
+      "receive",
+      "toggle.on",
+      "toggle.off",
+      "success",
+      "error",
+      "delete",
+    ])
+  })
+
+  it("orders the registers against each other", () => {
+    // Register is a DECLARED label, not a derived one, and trying to compute
+    // it from a single number does not survive contact with the travelling
+    // shapes: `close` starts high and lands mid, `delete` starts mid and lands
+    // low. Both are honestly "mid" to a listener and neither has one number
+    // that says so.
+    //
+    // What must hold is the ordering — lower really is below mid really is
+    // below higher — which is the part a listener would notice being wrong.
+    const meanCenter = (register: string) => {
+      const group = SOUND_SPECS.filter((x) => x.register === register)
+      return group.reduce((sum, x) => sum + x.center, 0) / group.length
+    }
+    expect(meanCenter("lower")).toBeLessThan(meanCenter("mid"))
+    expect(meanCenter("mid")).toBeLessThan(meanCenter("higher"))
+  })
+
+  it("makes every mirrored shape an exact inversion of its twin", () => {
+    // The whole reason shapes are a closed vocabulary rather than free-form
+    // note lists: two hand-written specs that merely LOOK like mirrors stop
+    // being mirrors the moment anything scales them.
+    //
+    // Compared as a flattened pitch sequence, because the mirror works
+    // differently for the two kinds — a scoop reverses WITHIN one note, a
+    // stepped figure reverses the ORDER of its notes. Reversing the sequence
+    // covers both without special-casing either.
+    const sequence = (shape: Parameters<typeof notesFor>[0]) =>
+      notesFor(shape, 3, 7).flatMap((n) => [n.from, n.to])
+
+    for (const [up, down] of [
+      ["scoopUp", "scoopDown"],
+      ["expand", "collapse"],
+      ["ascend", "descend"],
+    ] as const) {
+      expect([...sequence(up)].reverse(), `${up} vs ${down}`).toEqual(sequence(down))
+    }
+  })
+
+  it("makes a scoop continuous and an ascent stepped", () => {
+    // Both go up; they must not sound alike. A scoop is one note bending, an
+    // ascent is two distinct notes.
+    const scoop = soundIn("soft", "send").voices.filter((v) => v.kind === "osc")
+    const step = soundIn("soft", "success").voices.filter((v) => v.kind === "osc")
+    expect(scoop).toHaveLength(1)
+    expect(step).toHaveLength(2)
+    if (scoop[0].kind !== "osc") throw new Error("expected osc")
+    // The scoop travels within one note.
+    expect(scoop[0].pitch.endHz).toBeGreaterThan(scoop[0].pitch.startHz)
+  })
+
+  it("gives negative valence its dissonance, and nothing else", () => {
+    // error is dissonant because it is NEGATIVE, not because a dissonance was
+    // written into that one sound. Positive and neutral sounds get no extra
+    // voice at all.
+    const err = soundIn("soft", "error").voices.filter((v) => v.kind === "osc")
+    expect(err).toHaveLength(2)
+    if (err[0].kind !== "osc" || err[1].kind !== "osc") throw new Error("expected osc")
+    const semis = Math.abs(Math.log2(err[0].pitch.endHz / err[1].pitch.endHz) * 12)
+    expect(semis).toBeCloseTo(1, 1)
+
+    // tap is neutral and flat — one voice, no colour.
+    expect(soundIn("soft", "tap").voices.filter((v) => v.kind === "osc")).toHaveLength(1)
+  })
+
+  it("brightens the positive and darkens the negative", () => {
+    const positive = soundIn("soft", "send").filter.cutoffHz
+    const neutral = soundIn("soft", "tap").filter.cutoffHz
+    const negative = soundIn("soft", "error").filter.cutoffHz
+    expect(positive).toBeGreaterThan(neutral)
+    expect(negative).toBeLessThan(neutral)
+    // And hardens it — resonance rises with negativity.
+    expect(soundIn("soft", "error").filter.q).toBeGreaterThan(soundIn("soft", "tap").filter.q)
+  })
+
+  it("sweeps the filter for expand and collapse, and only those", () => {
+    // Pitch alone cannot express opening out. A menu appearing should widen.
+    const open = soundIn("soft", "open").filter
+    const close = soundIn("soft", "close").filter
+    expect(open.endCutoffHz).toBeGreaterThan(open.cutoffHz)
+    expect(close.endCutoffHz).toBeLessThan(close.cutoffHz)
+
+    // The DIRECTION mirrors; the absolute values do not, and should not.
+    // `open` is positive and `close` neutral, so open sits brighter throughout.
+    // That is the pair rule working as designed — contour inverts exactly,
+    // character is free to differ.
+    const ratio = (f: typeof open) => f.endCutoffHz! / f.cutoffHz
+    expect(ratio(open)).toBeCloseTo(1 / ratio(close), 4)
+    expect(open.cutoffHz).toBeGreaterThan(close.endCutoffHz!)
+
+    expect(soundIn("soft", "tap").filter.endCutoffHz).toBeUndefined()
+  })
+
+  it("never lets an aggressive preset dive out of audibility", () => {
+    // Sci-Fi's 3x sweep on send's seven-semitone scoop reached 274 Hz before
+    // the floor existed — inside the small-speaker rolloff and effectively
+    // silent on a laptop.
+    for (const presetId of PRESET_IDS) {
+      for (const s of setFor(presetId).sounds) {
+        for (const v of s.voices) {
+          if (v.kind !== "osc") continue
+          expect(v.pitch.startHz, `${presetId}/${s.id}`).toBeGreaterThanOrEqual(MIN_MUSICAL_HZ)
+          expect(v.pitch.endHz, `${presetId}/${s.id}`).toBeGreaterThanOrEqual(MIN_MUSICAL_HZ)
+        }
+      }
+    }
   })
 })
 

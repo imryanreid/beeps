@@ -363,63 +363,71 @@ parameter sets will wire them to every event it can find.
 This is the differentiator. Four rules, and every sound in the set is derived
 from them rather than authored independently.
 
-### 7.1 One base frequency, everything at musical intervals
+### 7.1 Three axes, and nothing else
 
-The set has a single `baseHz`. Each sound's pitch is derived as
-`baseHz × 2^(semitones / 12)`. Nothing in the set is an arbitrary frequency, so
-nothing clashes — two sounds overlapping during rapid interaction land on an
-interval rather than on a beat.
+Every sound is declared on three axes. Nothing carries a hand-tuned frequency.
 
-| Sound          | Semitones (start → end)    | Shape                        | Voices               |
-| -------------- | -------------------------- | ---------------------------- | -------------------- |
-| `tap`          | 0 → −2                     | slight fall                  | 1                    |
-| `toggle.on`    | +2 → +7                    | rise                         | 1                    |
-| `toggle.off`   | +7 → +2                    | fall                         | 1                    |
-| `open`         | 0 → +5                     | rise                         | 1                    |
-| `close`        | +5 → 0                     | fall                         | 1                    |
-| `send`         | +4 → +11                   | rise, thinning               | 1                    |
-| `receive`      | +11 → +4                   | fall, filling                | 1                    |
-| `success`      | +4, then +9                | two rising notes             | 2 (second at +70 ms) |
-| `notification` | +12, then +7               | two falling notes            | 2 (second at +90 ms) |
-| `error`        | 0 and −1 together, falling | dissonant fall               | 2 (simultaneous)     |
-| `delete`       | 0 → −12                    | fast octave drop, with noise | 1 (+ noise)          |
+| Axis         | Values                                                      | Owns                  |
+| ------------ | ----------------------------------------------------------- | --------------------- |
+| **Valence**  | positive / neutral / negative                               | Harmony and timbre    |
+| **Register** | lower / mid / higher                                        | Roughly where it sits |
+| **Shape**    | flat, ascend, descend, scoopUp, scoopDown, expand, collapse | What the pitch does   |
 
-The reasoning worth keeping: `success` **rises** through a perfect fourth and
-`notification` **falls** through one. Both are two-note figures of the same
-width, and the direction is the entire difference — ascending reads as "you
-completed something", descending as "here is information". `error` is the only
-deliberately dissonant sound in the set: two voices a semitone apart beat
-against each other, which is unpleasant in exactly the way an error should be,
-without needing to be loud.
+**Valence is the axis that earns its keep.** `error` is dissonant _because it is
+negative_, not because a dissonance was written into that one sound — negative
+valence darkens the filter, hardens the resonance, and adds a voice a semitone
+away so the two beat against each other. Add a twelfth negative sound and it
+gets the same treatment for free. Positive brightens and stays consonant;
+neutral does nothing.
 
-### 7.1.1 Why the base is 880 Hz
+It is orthogonal to `Tier`, and both are needed: a notification is positive
+_and_ loud; an error is negative _and_ loud; a tap is neutral and quiet. Valence
+drives character, tier drives gain and length.
 
-The base is not a taste decision. It is constrained by the set's widest
-downward interval, and the constraint has two sides.
+**Shape is a closed vocabulary, and that is what makes the pairs safe.**
+`ascend`/`descend` are _stepped_ — two distinct notes, the way a chime moves.
+`scoopUp`/`scoopDown` are _continuous_, one note bending into another, which is
+the iMessage send-and-receive gesture. Both go the same direction and sound
+nothing alike, which is why both exist. `expand`/`collapse` add a filter sweep
+on top of the pitch move, because a menu appearing should feel like it _widens_
+rather than merely rising — pitch alone cannot say that.
 
-`delete` drops a full octave, so the base sets the floor for the whole set.
-`notification` reaches +12, so the base also sets the ceiling. Those have to
-land between two hazards: the frequencies a small speaker cannot reproduce, and
-the band the ear finds harsh (§10).
+Every "down" shape is _defined_ as the mirror of its "up" twin, so the
+inversions hold by construction. This replaced hand-written opposing specs,
+which stopped being mirrors the moment a preset scaled them.
 
-| Base       | `delete` floor (−12) | `notification` ceiling (+12) | Verdict                                                             |
-| ---------- | -------------------- | ---------------------------- | ------------------------------------------------------------------- |
-| 660 Hz     | 330 Hz               | 1320 Hz                      | Floor is inside the region small speakers are already giving up on. |
-| 720 Hz     | 360 Hz               | 1440 Hz                      | Workable. Warmer.                                                   |
-| **880 Hz** | **440 Hz**           | **1760 Hz**                  | Clear of the rolloff, and still under the 2 kHz harsh band.         |
-| 1046 Hz    | 523 Hz               | 2093 Hz                      | Ceiling crosses into the harsh band.                                |
+### 7.1.1 The set
 
-880 Hz is the value where the full ±12-semitone span fits between both. It also
-sits within the 350–1000 Hz range that earcon research uses as its nominal
-fundamentals — the [BeepBank-500 corpus](https://arxiv.org/abs/2509.17277)
-builds its whole parameter grid on centers of 350, 500, 750 and 1000 Hz,
-described as typical of earcons.
+| Sound          | Valence  | Register | Shape     | Semitones from base     |
+| -------------- | -------- | -------- | --------- | ----------------------- |
+| `tap`          | neutral  | mid      | flat      | 0                       |
+| `notification` | positive | higher   | ascend    | +9, then +12            |
+| `open`         | positive | mid      | expand    | +2 → +7, filter opens   |
+| `close`        | neutral  | mid      | collapse  | +7 → +2, filter closes  |
+| `send`         | positive | lower    | scoopUp   | −5 → +2                 |
+| `receive`      | positive | lower    | scoopDown | +2 → −5                 |
+| `toggle.on`    | neutral  | higher   | scoopUp   | +5 → +10                |
+| `toggle.off`   | neutral  | higher   | scoopDown | +10 → +5                |
+| `success`      | positive | mid      | ascend    | +4, then +9             |
+| `error`        | negative | mid      | flat      | 0, plus −1 from valence |
+| `delete`       | negative | mid      | descend   | 0, then −12             |
 
-A preset may override the base, and Soft does at 720 Hz for warmth — which is
-the lowest any shipped preset goes, keeping its floor at 360 Hz. Below about
-700 Hz the octave drop on `delete` stops being reliably audible on a phone, and
-the spectrum rail (§10) shows that happening rather than leaving it to be
-discovered in the wild.
+Everything derives from one `baseHz` as `base × 2^(semitones/12)`, so nothing in
+the set is an arbitrary frequency and two sounds overlapping during fast
+interaction land on an interval rather than on a beat.
+
+**Register is a declared label, not a derived one.** It cannot be computed from
+a single number once shapes travel: `close` starts high and lands mid, `delete`
+starts mid and lands low, and both are honestly "mid" to a listener. What is
+enforced is the _ordering_ — lower sits below mid sits below higher on average,
+which is the part anyone would notice being wrong.
+
+**A floor of 330 Hz** applies to every resolved note. A preset's `sweepScale`
+multiplies the semantic interval, and an aggressive one compounds on an already
+low sound: Sci-Fi's 3× on `send`'s seven-semitone scoop put its start at 274 Hz,
+inside the small-speaker rolloff and effectively silent on a laptop. Clamping
+lets a preset be as dramatic as it likes without any sound diving out of
+audibility.
 
 ### 7.2 Pairs are generated from each other
 

@@ -112,8 +112,23 @@ export function scheduleSound(ctx, destination, sound, when, onVoice) {
 
   const filter = ctx.createBiquadFilter()
   filter.type = sound.filter.type
-  filter.frequency.setValueAtTime(clampHz(sound.filter.cutoffHz), t0)
   filter.Q.setValueAtTime(sound.filter.q, t0)
+
+  const fromHz = clampHz(sound.filter.cutoffHz)
+  filter.frequency.setValueAtTime(fromHz, t0)
+  if (sound.filter.endCutoffHz) {
+    // The filter sweep behind `expand` and `collapse`. Exponential for the same
+    // reason pitch is: cutoff is heard logarithmically, so a linear ramp spends
+    // most of its travel somewhere you cannot hear it moving.
+    //
+    // It runs over the sound's whole length rather than the pitch glide's, so
+    // the opening keeps going after the note has settled — which is what makes
+    // it read as widening rather than as part of the same gesture.
+    const toHz = clampHz(sound.filter.endCutoffHz)
+    if (toHz !== fromHz) {
+      filter.frequency.exponentialRampToValueAtTime(toHz, t0 + sound.durationMs / 1000)
+    }
+  }
 
   const master = ctx.createGain()
   master.gain.setValueAtTime(sound.normalizedGain, t0)

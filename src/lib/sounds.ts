@@ -4,12 +4,21 @@
 // sounds themselves — what interval each sits at,
 // how many voices it has, and when it should play.
 //
-// A sound is declared here as a *recipe*, not as
-// finished numbers: semitone offsets from a base and
-// a shape. A preset supplies the character, and
-// resolve.ts combines the two. That split is what
-// lets a preset change the whole set at once while
-// the semantic relationships stay put.
+// Each sound is declared on three axes, and nothing
+// else: VALENCE (is this good, bad or neither),
+// REGISTER (roughly where it sits), and SHAPE (what
+// the pitch does). Everything audible is derived from
+// those plus a preset — no sound carries hand-tuned
+// frequencies.
+//
+// The axes are load-bearing rather than descriptive.
+// Valence is why `error` is dissonant: it is not a
+// special case written into that one sound, it falls
+// out of being negative, so a twelfth negative sound
+// gets the same treatment for free. Shape is why the
+// pairs cannot drift: `scoopDown` is *defined* as the
+// mirror of `scoopUp`, so open/close, send/receive and
+// toggle on/off invert by construction.
 //
 // The `when` / `whenNot` strings are not comments.
 // They ship verbatim in the agent markdown, and they
@@ -97,6 +106,14 @@ export type Voice = OscVoice | NoiseVoice
 export type Filter = {
   type: "lowpass" | "highpass"
   cutoffHz: number
+  /**
+   * Where the cutoff travels to, when the shape sweeps it.
+   *
+   * Absent on a static filter. Present for `expand` and `collapse`, which is
+   * how a menu appearing feels like it *widens* rather than merely rising —
+   * pitch alone cannot express opening out.
+   */
+  endCutoffHz?: number
   /** Resonance. Above ~12 a short percussive sound rings after the envelope shuts. */
   q: number
 }
@@ -131,143 +148,235 @@ export type SoundSet = {
 // ---------------------------------------------------------------------------
 
 /**
- * One voice of a recipe, in semitones from the set's base frequency.
+ * Is this event good, bad, or neither?
  *
- * `from` and `to` describe the *semantic* interval — the fall in `tap`, the
- * rise in `toggle.on`. A preset scales that depth but never reverses it, so
- * "confirm rises, dismiss falls" survives every character change.
- *
- * When `from === to` the note is steady and the preset supplies its own
- * intrinsic downward glide instead. That is how a two-note sound like `success`
- * gets its character without hard-coding a sweep into the semantics.
+ * Drives harmony and timbre, not pitch: positive brightens and stays
+ * consonant, negative darkens, hardens and adds a voice a semitone away so the
+ * two beat against each other. Orthogonal to `Tier` — a notification is
+ * positive AND loud; an error is negative AND loud; a tap is neutral and
+ * quiet.
  */
-export type VoiceSpec = {
+export type Valence = "positive" | "neutral" | "negative"
+
+/** Roughly where the sound sits. A label for people; `center` is the truth. */
+export type Register = "lower" | "mid" | "higher"
+
+/**
+ * What the pitch does.
+ *
+ * `ascend`/`descend` are stepped — two distinct notes, the way a doorbell or a
+ * chime moves. `scoopUp`/`scoopDown` are continuous, one note bending into
+ * another, which is the iMessage send-and-receive gesture. Both go the same
+ * direction and they sound nothing alike, which is the point of having both.
+ *
+ * `expand`/`collapse` add a filter sweep on top of the pitch move: the sound
+ * opens up as it rises, or closes down as it falls. A menu appearing should
+ * feel like it widens, not merely like it goes up.
+ *
+ * Every "down" shape is the exact mirror of its "up" twin, which is what makes
+ * the pairs inversions by construction rather than by careful authoring.
+ */
+export type Shape =
+  "flat" | "ascend" | "descend" | "scoopUp" | "scoopDown" | "expand" | "collapse"
+
+/** One note of a resolved shape, in semitones from the set's base. */
+export type NoteSpec = {
   from: number
   to: number
   /** Delay from t0 as a share of the sound's duration, 0–1. */
   offsetShare: number
-  /** Relative level within the sound, 0–1, before normalization. */
+  /** Relative level, 0–1, before normalization. */
   gain: number
 }
 
+/** How far into a sound its second note lands, for the stepped shapes. */
+export const SECOND_NOTE_SHARE = 0.35
+
+/**
+ * The notes a shape produces, in semitones from base.
+ *
+ * The mirrored shapes are written as one expression each so the inversion is
+ * structural. Two hand-written specs that merely look like mirrors stop being
+ * mirrors the moment anything scales them — which is exactly what happened the
+ * first time this was built.
+ */
+export function notesFor(shape: Shape, center: number, travel: number): NoteSpec[] {
+  const note = (from: number, to: number, offsetShare = 0, gain = 1): NoteSpec => ({
+    from,
+    to,
+    offsetShare,
+    gain,
+  })
+  switch (shape) {
+    case "flat":
+      return [note(center, center)]
+    case "ascend":
+      return [
+        note(center, center),
+        note(center + travel, center + travel, SECOND_NOTE_SHARE, 0.9),
+      ]
+    case "descend":
+      return [
+        note(center + travel, center + travel),
+        note(center, center, SECOND_NOTE_SHARE, 0.9),
+      ]
+    case "scoopUp":
+    case "expand":
+      return [note(center, center + travel)]
+    case "scoopDown":
+    case "collapse":
+      return [note(center + travel, center)]
+  }
+}
+
+/** Shapes that sweep the filter as well as the pitch. */
+export const opensFilter = (shape: Shape): boolean => shape === "expand"
+export const closesFilter = (shape: Shape): boolean => shape === "collapse"
+
 export type SoundSpec = {
   id: SoundId
+  valence: Valence
+  register: Register
+  shape: Shape
   tier: Tier
-  voices: VoiceSpec[]
-  /** Force a noise transient even on presets that carry none. `delete` does. */
+  /** Semitones from base. The sound's home note. */
+  center: number
+  /** How far the shape travels, in semitones. Always positive; shape signs it. */
+  travel: number
+  /** Force a noise transient even on presets that carry none. */
   forceNoise?: boolean
-  /**
-   * Multiplier on the preset's filter cutoff. `send` opens as it rises and
-   * `receive` closes as it falls, which is the half of that pair's inversion
-   * that pitch alone cannot express.
-   */
-  cutoffScale?: number
   /** Ships verbatim in the agent markdown. */
   when: string
   whenNot: string
 }
 
 /**
- * The set. Order is the order everything renders in — roughly by how often a
- * real app fires them, which puts `tap` first and `delete` last.
+ * The set, in the order it renders. Pairs sit adjacent so an inversion can be
+ * heard by playing two rows in a row.
  */
 export const SOUND_SPECS: SoundSpec[] = [
   {
     id: "tap",
+    valence: "neutral",
+    register: "mid",
+    shape: "flat",
     tier: "subtle",
-    voices: [{ from: 0, to: -2, offsetShare: 0, gain: 1 }],
+    center: 0,
+    travel: 0,
     when: "A discrete press that commits something small — a button, a segment, a menu item.",
     whenNot: "Hover, focus, scroll, or any pointer movement. Never on every keystroke.",
   },
   {
-    id: "toggle.on",
-    tier: "subtle",
-    voices: [{ from: 2, to: 7, offsetShare: 0, gain: 1 }],
-    when: "A binary control turning on, when the user turned it on.",
-    whenNot: "Programmatic state changes, or restoring saved settings on load.",
-  },
-  {
-    id: "toggle.off",
-    tier: "subtle",
-    voices: [{ from: 7, to: 2, offsetShare: 0, gain: 1 }],
-    when: "The same control turning off.",
-    whenNot: "Programmatic state changes, or restoring saved settings on load.",
+    id: "notification",
+    valence: "positive",
+    register: "higher",
+    shape: "ascend",
+    tier: "alert",
+    center: 9,
+    travel: 3,
+    when: "An interruption that is genuinely new information.",
+    whenNot:
+      "Anything the user can see happening. Never when the originating tab is focused and the item is already on screen.",
   },
   {
     id: "open",
+    valence: "positive",
+    register: "mid",
+    shape: "expand",
     tier: "subtle",
-    voices: [{ from: 0, to: 5, offsetShare: 0, gain: 1 }],
+    center: 2,
+    travel: 5,
     when: "A surface the user opened: menu, sheet, drawer, disclosure.",
     whenNot: "Anything that opens by itself, including tooltips on hover.",
   },
   {
     id: "close",
+    valence: "neutral",
+    register: "mid",
+    shape: "collapse",
     tier: "subtle",
-    voices: [{ from: 5, to: 0, offsetShare: 0, gain: 1 }],
+    center: 2,
+    travel: 5,
     when: "The same surface dismissed.",
     whenNot: "Route changes and page navigation — those are not closes.",
   },
   {
     id: "send",
+    valence: "positive",
+    register: "lower",
+    shape: "scoopUp",
     tier: "notable",
-    // Opens up as it rises: the sound thins and brightens on the way out.
-    cutoffScale: 1.6,
-    voices: [{ from: 4, to: 11, offsetShare: 0, gain: 1 }],
+    center: -5,
+    travel: 7,
     when: "Outbound, user-initiated: a message sent, a form submitted, a job queued.",
     whenNot: "Autosave, background sync, telemetry, retries.",
   },
   {
     id: "receive",
+    valence: "positive",
+    register: "lower",
+    shape: "scoopDown",
     tier: "notable",
-    // The mirror: closes as it falls, so the sound fills out on arrival.
-    cutoffScale: 0.7,
-    voices: [{ from: 11, to: 4, offsetShare: 0, gain: 1 }],
+    center: -5,
+    travel: 7,
     when: "Inbound content arriving while the user is present and looking.",
     whenNot: "Bulk arrivals — play once for a batch, never once per item.",
   },
   {
+    id: "toggle.on",
+    valence: "neutral",
+    register: "higher",
+    shape: "scoopUp",
+    tier: "subtle",
+    center: 5,
+    travel: 5,
+    when: "A binary control turning on, when the user turned it on.",
+    whenNot: "Programmatic state changes, or restoring saved settings on load.",
+  },
+  {
+    id: "toggle.off",
+    valence: "neutral",
+    register: "higher",
+    shape: "scoopDown",
+    tier: "subtle",
+    center: 5,
+    travel: 5,
+    when: "The same control turning off.",
+    whenNot: "Programmatic state changes, or restoring saved settings on load.",
+  },
+  {
     id: "success",
+    valence: "positive",
+    register: "mid",
+    shape: "ascend",
     tier: "notable",
-    // Two rising notes a perfect fourth apart. Ascending reads as completion.
-    voices: [
-      { from: 4, to: 4, offsetShare: 0, gain: 1 },
-      { from: 9, to: 9, offsetShare: 0.35, gain: 0.9 },
-    ],
+    center: 4,
+    travel: 5,
     when: "A user-initiated operation completed. Only on completion the user was waiting for.",
     whenNot:
       "Background success, cache warms, or anything they did not start. Never as a page-load chime.",
   },
   {
     id: "error",
+    valence: "negative",
+    register: "mid",
+    shape: "flat",
     tier: "alert",
-    // Two voices a semitone apart, sounding together and falling. The beating
-    // is the point: unpleasant without needing to be loud.
-    voices: [
-      { from: 0, to: -3, offsetShare: 0, gain: 1 },
-      { from: -1, to: -4, offsetShare: 0, gain: 0.85 },
-    ],
+    center: 0,
+    travel: 0,
     when: "An operation failed in a way the user must respond to.",
     whenNot:
       "Validation on a field they have not finished typing in. Never more than once per submit.",
   },
   {
-    id: "notification",
-    tier: "alert",
-    // Two falling notes, the same width as success and the opposite direction.
-    // Descending reads as "here is information" rather than "you did it".
-    voices: [
-      { from: 12, to: 12, offsetShare: 0, gain: 1 },
-      { from: 7, to: 7, offsetShare: 0.4, gain: 0.95 },
-    ],
-    when: "An interruption that is genuinely new information.",
-    whenNot:
-      "Anything the user can see happening. Never when the originating tab is focused and the item is already on screen.",
-  },
-  {
     id: "delete",
+    valence: "negative",
+    register: "mid",
+    shape: "descend",
     tier: "alert",
+    center: -12,
+    travel: 12,
     forceNoise: true,
-    voices: [{ from: 0, to: -12, offsetShare: 0, gain: 1 }],
     when: "Destructive removal that has actually happened.",
     whenNot: "Opening a confirmation dialog — that is `open`.",
   },
@@ -306,9 +415,9 @@ export type Pair = { a: SoundId; b: SoundId; kind: PairKind }
  * derives from the other.
  */
 export const PAIRS: Pair[] = [
-  { a: "toggle.on", b: "toggle.off", kind: "inversion" },
   { a: "open", b: "close", kind: "inversion" },
   { a: "send", b: "receive", kind: "inversion" },
+  { a: "toggle.on", b: "toggle.off", kind: "inversion" },
   { a: "success", b: "error", kind: "contrast" },
 ]
 
