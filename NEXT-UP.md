@@ -105,7 +105,18 @@ mirrored — and nothing under `close=`, so there is no stored value for
    argued out of: direction stays meaningful, and the duration window is a real
    constraint at both ends.
 
-1. **Tune the nine presets by ear.** This is the piece that cannot be checked
+1. **Tune the nine presets by ear — round two.** Round one opened up the
+   envelope-shape axis (decay:release now spans 1.3 to 6.8 where it spanned
+   1.9 to 3.1) and rebuilt Warm's beating so it is fast enough to hear. Use the
+   new **Across presets** control — it plays one sound through all nine back to
+   back, which is the only way preset character can actually be judged.
+
+   Listen for: whether Crisp now reads as a click rather than a short beep,
+   whether Warm's 24-cent beat is audible at a 132 ms `tap` (it is ~1.2 cycles
+   there and ~2.7 at 290 ms — it may still need widening), and whether Glassy's
+   restored tails read as a bell now they can ring to 510 ms.
+
+   Superseded note — This is the piece that cannot be checked
    by a test and the thing the tool will be judged on. Every number is a
    considered starting point, not a finished one. Use rapid-fire at 120 ms as
    the acceptance test, and listen to `notification` on each — it is the

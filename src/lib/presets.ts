@@ -125,9 +125,9 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     baseHz: 720,
     layers: solo("sine"),
     attackMs: 8,
-    decayMs: 155,
+    decayMs: 150,
     sustain: 0,
-    releaseMs: 67,
+    releaseMs: 75,
     sweepScale: 0.8,
     intrinsicSweep: 1.5,
     sweepShare: 0.3,
@@ -150,9 +150,9 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     baseHz: 900,
     layers: solo("triangle"),
     attackMs: 2,
-    decayMs: 115,
+    decayMs: 106,
     sustain: 0,
-    releaseMs: 48,
+    releaseMs: 42,
     sweepScale: 0.5,
     intrinsicSweep: 1,
     sweepShare: 0.22,
@@ -168,14 +168,14 @@ export const PRESETS: Record<PresetId, PresetDef> = {
   crisp: {
     id: "crisp",
     name: "Crisp",
-    blurb: "A click, not a beep. A 1 ms attack and a noise transient that lands first.",
+    blurb: "A click, not a beep. A 1 ms attack, a noise transient, and almost no tail.",
     suits: "dense, fast interfaces",
     baseHz: 880,
     layers: solo("square"),
     attackMs: 1,
-    decayMs: 125,
+    decayMs: 84,
     sustain: 0,
-    releaseMs: 44,
+    releaseMs: 15,
     sweepScale: 1.3,
     // 2, not 3. `notification`'s top note sits at +12, and an intrinsic glide
     // of 3 starts it at 880 x 2^(15/12) = 2093 Hz — inside the harsh band.
@@ -189,34 +189,41 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     // amplitude. That ordering is what reads as a physical click.
     noise: { amount: 0.25, decayMs: 6 },
     gain: { subtle: 0.22, notable: 0.35, alert: 0.45 },
-    envScale: { subtle: 0.47, notable: 1.0, alert: 1.6 },
+    envScale: { subtle: 0.74, notable: 1.0, alert: 1.68 },
   },
 
   warm: {
     id: "warm",
     name: "Warm",
-    blurb: "Two voices a few cents apart, beating slowly against each other. Dark and full.",
+    blurb: "Three sines a few cents apart, beating audibly against each other. Dark and full.",
     suits: "finance, health, anything that should feel steady",
     baseHz: 680,
-    // The entire character is here: a twin detuned by 9 cents drifts in and
-    // out of phase with the first, and that slow beating is what "warm" means
-    // on a synthesizer. One sine alone cannot do it at any filter setting.
+    // Three sines, spread 24 cents from lowest to highest. Beating is what
+    // "warm" means on a synthesizer, but the rate has to fit the sound: a
+    // single twin 9 cents out beat at 3.5 Hz, one cycle every 285 ms, so at a
+    // 132 ms `tap` you heard less than half a cycle — no beating at all, just a
+    // fractionally thicker tone. Twelve cents either side beats near 9.4 Hz,
+    // which is nearly three cycles inside a 290 ms sound and audible as
+    // movement.
+    //
+    // No octave layer. Warmth is darkness, and shine works against it — the
+    // body comes from the three unisons under a low cutoff instead.
     layers: [
       { interval: 0, waveform: "sine", gain: 1 },
-      { interval: 0, detuneCents: 9, waveform: "sine", gain: 0.85 },
-      { interval: 12, waveform: "sine", gain: 0.12 },
+      { interval: 0, detuneCents: 12, waveform: "sine", gain: 0.9 },
+      { interval: 0, detuneCents: -12, waveform: "sine", gain: 0.9 },
     ],
-    attackMs: 12,
-    decayMs: 190,
+    attackMs: 14,
+    decayMs: 174,
     sustain: 0,
-    releaseMs: 78,
+    releaseMs: 102,
     sweepScale: 0.65,
     intrinsicSweep: 1.2,
     sweepShare: 0.34,
     glide: "smooth",
     filterType: "lowpass",
-    filterCutoffHz: 900,
-    filterQ: 0.6,
+    filterCutoffHz: 820,
+    filterQ: 0.5,
     noise: null,
     gain: { subtle: 0.2, notable: 0.32, alert: 0.42 },
     envScale: { subtle: 0.42, notable: 1.0, alert: 1.5 },
@@ -232,10 +239,10 @@ export const PRESETS: Record<PresetId, PresetDef> = {
       { interval: 0, waveform: "sine", gain: 1 },
       { interval: 12, waveform: "sine", gain: 0.18, tail: 0.7 },
     ],
-    attackMs: 6,
-    decayMs: 225,
+    attackMs: 8,
+    decayMs: 193,
     sustain: 0,
-    releaseMs: 89,
+    releaseMs: 129,
     // A deep, slow glide on a sine through a low resonant filter is the whole
     // "bloop". The resonance does real work here — at Q 0.7 this is just a soft
     // tone; at 3.5 the filter rings enough to give the drop a body.
@@ -248,7 +255,7 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     filterQ: 3.5,
     noise: null,
     gain: { subtle: 0.2, notable: 0.3, alert: 0.38 },
-    envScale: { subtle: 0.4, notable: 1.0, alert: 1.45 },
+    envScale: { subtle: 0.38, notable: 1.0, alert: 1.35 },
   },
 
   glassy: {
@@ -260,15 +267,21 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     // Bells are their overtones. The upper partials outlast the fundamental,
     // which is what `tail` above 1 buys — they are still sounding when the note
     // underneath has gone.
+    //
+    // So the fundamental is deliberately SHORT and the partials long. Giving
+    // all three the same envelope and stretching the lot produces a chord that
+    // fades, not a struck bell. These tails were cut to 1.35/1.55 to fit the
+    // old flat 200 ms ceiling; the alert window is 700 ms now and they can ring
+    // properly again.
     layers: [
       { interval: 0, waveform: "triangle", gain: 1 },
-      { interval: 12, waveform: "triangle", gain: 0.3, tail: 1.35 },
-      { interval: 19, waveform: "sine", gain: 0.12, tail: 1.55 },
+      { interval: 12, waveform: "triangle", gain: 0.3, tail: 1.5 },
+      { interval: 19, waveform: "sine", gain: 0.12, tail: 1.8 },
     ],
     attackMs: 3,
-    decayMs: 140,
+    decayMs: 90,
     sustain: 0,
-    releaseMs: 72,
+    releaseMs: 70,
     // Bells do not swoop. Almost all the character is in the overtones.
     sweepScale: 0.45,
     intrinsicSweep: 0.8,
@@ -293,9 +306,9 @@ export const PRESETS: Record<PresetId, PresetDef> = {
       { interval: 12, waveform: "square", gain: 0.22 },
     ],
     attackMs: 2,
-    decayMs: 150,
+    decayMs: 134,
     sustain: 0,
-    releaseMs: 58,
+    releaseMs: 34,
     // The leaps are the joke. Everything the set says rises or falls, this says
     // twice as hard — without ever reversing a direction, because direction is
     // meaning even when the tone is silly.
@@ -322,9 +335,9 @@ export const PRESETS: Record<PresetId, PresetDef> = {
       { interval: 12, waveform: "square", gain: 0.32 },
     ],
     attackMs: 1,
-    decayMs: 135,
+    decayMs: 95,
     sustain: 0,
-    releaseMs: 44,
+    releaseMs: 14,
     sweepScale: 1.5,
     intrinsicSweep: 2,
     sweepShare: 0.16,
@@ -338,7 +351,7 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     filterQ: 0.5,
     noise: { amount: 0.15, decayMs: 12 },
     gain: { subtle: 0.2, notable: 0.3, alert: 0.4 },
-    envScale: { subtle: 0.45, notable: 1.0, alert: 1.7 },
+    envScale: { subtle: 0.66, notable: 1.0, alert: 1.7 },
   },
 
   scifi: {
@@ -352,9 +365,9 @@ export const PRESETS: Record<PresetId, PresetDef> = {
       { interval: 7, waveform: "sawtooth", gain: 0.4 },
     ],
     attackMs: 1,
-    decayMs: 150,
+    decayMs: 157,
     sustain: 0,
-    releaseMs: 49,
+    releaseMs: 32,
     // Three times the declared interval, travelled fast. A `delete` that
     // normally falls an octave here starts two octaves up and plunges. The
     // sweep passes THROUGH the harsh band rather than sitting in it — which is
@@ -368,7 +381,7 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     filterCutoffHz: 3000,
     // High Q so the filter itself rings as the pitch drops past it. That
     // resonant sweep is what reads as "energy weapon" rather than "buzz".
-    filterQ: 8,
+    filterQ: 8.0,
     noise: { amount: 0.2, decayMs: 10 },
     gain: { subtle: 0.2, notable: 0.32, alert: 0.42 },
     envScale: { subtle: 0.45, notable: 1.0, alert: 1.7 },

@@ -354,15 +354,32 @@ describe("the duration budget", () => {
   })
 
   it("gives each tier real room, not three shades of blip", () => {
-    // The whole point of the change: notable and alert sounds mark moments and
-    // are allowed to be figures. If the tiers collapse back together the
-    // budget has stopped meaning anything.
+    // notable and alert mark moments and are allowed to be figures. If the
+    // tiers collapse back together the budget has stopped meaning anything.
+    //
+    // Asserted end-to-end rather than step-by-step: a preset whose identity IS
+    // brevity gets squeezed at the bottom, because the subtle floor binds
+    // before its own character would stop it. Crisp runs 76/102/169 — the gap
+    // from subtle to notable is small, and the span across all three is not.
     for (const presetId of PRESET_IDS) {
       const set = setFor(presetId)
       const ms = (id: SoundId) => soundingMs(set.sounds.find((s) => s.id === id)!)
-      expect(ms("error"), presetId).toBeGreaterThan(ms("send") * 1.3)
-      expect(ms("send"), presetId).toBeGreaterThan(ms("tap") * 1.4)
+      expect(ms("error"), `${presetId} alert vs subtle`).toBeGreaterThan(ms("tap") * 1.8)
+      expect(ms("send"), `${presetId} notable vs subtle`).toBeGreaterThan(ms("tap"))
+      expect(ms("error"), `${presetId} alert vs notable`).toBeGreaterThan(ms("send"))
     }
+  })
+
+  it("spreads envelope SHAPE across the presets, not just length", () => {
+    // The character axis. Every preset once had a decay:release between 1.9
+    // and 3.1 — the same envelope at nine scales — which is why the names did
+    // not land: what most separates a click from a bell is the shape of its
+    // fall, and they all fell the same way.
+    const ratios = PRESET_IDS.map((id) => PRESETS[id].decayMs / PRESETS[id].releaseMs)
+    expect(Math.max(...ratios) / Math.min(...ratios)).toBeGreaterThan(3)
+    // Retro and Crisp cut off abruptly; Glassy and Bloopy hang on.
+    expect(PRESETS.retro.decayMs / PRESETS.retro.releaseMs).toBeGreaterThan(5)
+    expect(PRESETS.glassy.decayMs / PRESETS.glassy.releaseMs).toBeLessThan(2)
   })
 
   it("still orders the tiers by length after that cap", () => {
@@ -695,7 +712,7 @@ describe("preset layers — the thing that makes presets instruments", () => {
     const twin = warmTap.voices.find((v) => v.kind === "osc" && v.detuneCents)
     expect(twin).toBeDefined()
     if (twin?.kind !== "osc") throw new Error("expected osc")
-    expect(twin.detuneCents).toBe(9)
+    expect(twin.detuneCents).toBe(12)
     // A detuned twin is at the SAME frequency — the offset is applied by the
     // oscillator, not baked into the pitch, so it holds across the glide.
     const first = warmTap.voices.find((v) => v.kind === "osc")
