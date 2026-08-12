@@ -94,6 +94,40 @@ start frequency writes `?open=e1100` — routed upstream to the canonical member
 mirrored — and nothing under `close=`, so there is no stored value for
 `resolve()` to overwrite.
 
+### 2026-08-12 — distinctness
+
+Ry reported four collisions by ear — `receive`/`delete` on Crisp,
+`tap`/`error` on Glassy and Retro, and Glassy sounding metallic rather than
+glassy. They were one bug, and a confusion matrix across all nine presets
+found two more nobody had noticed.
+
+**The semantic layer had more names than behaviours.** `expand` shared a
+switch branch with `scoopUp` and `collapse` with `scoopDown`, so `open` was
+`toggle.on` transposed three semitones — in every preset. Six of eleven
+sounds were duplicated in contour and register. It surfaced preset-by-preset
+because presets that suppress pitch legibility expose it, which is exactly
+how it would have been patched three separate times.
+
+Shapes now differ in *behaviour*: `glideShareFor` gives scoops half the glide
+time of a size change, so a gesture arrives early and holds where an expand
+is still moving at the end. Registers spread, and `lengthScale` lets one tier
+hold sounds of different lengths.
+
+**Glassy was metallic because of a change made the round before.** Raising
+its tails to 1.5/1.9 so it would "ring like a bell" doubled its spectral
+centroid between onset and decay — 988 → 2137 Hz on `tap`, where Soft moves
+761 → 834. A sound that gets *brighter as it dies* is a struck bell, and a
+bell is metal. Partials now fade before the note: ×0.77, the most sharply
+darkening preset in the set.
+
+Worth remembering: the first diagnosis (triangle harmonics + resonant Q) was
+measurable but only ~6% of the centroid — triangle harmonics fall off as
+1/n² and the lowpass had already taken most of them. Measuring the rendered
+audio rather than reasoning about the model is what found the real cause.
+
+`src/lib/distinctness.test.ts` is new and is the check that was missing: it
+fails if any two sounds match on pitch, direction, travel and glide at once.
+
 ## Next
 
 0. **Ry is writing per-sound shape/flavour definitions.** Those land next and
@@ -105,7 +139,14 @@ mirrored — and nothing under `close=`, so there is no stored value for
    argued out of: direction stays meaningful, and the duration window is a real
    constraint at both ends.
 
-1. **Tune the nine presets by ear — round two.** Round one opened up the
+1. **Tune the nine presets by ear — round three.** Round two made every sound
+   distinguishable from every other one and rebuilt Glassy away from being a
+   bell. Still open by ear: whether Glassy now reads as glass rather than just
+   as short (it lost real length when the ring went — `tap` 133 → 91 ms, and
+   its note was lengthened to compensate), whether `delete`'s octave drop is
+   too final, and whether Crisp reads as a click yet.
+
+   Superseded — round one opened up the
    envelope-shape axis (decay:release now spans 1.3 to 6.8 where it spanned
    1.9 to 3.1) and rebuilt Warm's beating so it is fast enough to hear. Use the
    new **Across presets** control — it plays one sound through all nine back to
@@ -149,5 +190,5 @@ mirrored — and nothing under `close=`, so there is no stored value for
 - **The manifest blurb** still reads "Short interface sounds that agree with the
   motion they accompany", which promises motion-coupling that isn't in v1 scope.
   Left by agreement; revisit in the same edit that adds the domain.
-- **Preset tuning is real work, not polish.** §18 step 7. The three presets have
+- **Preset tuning is real work, not polish.** §18 step 7. The nine presets have
   considered starting numbers, but they get finished by ear.
