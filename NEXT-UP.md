@@ -161,6 +161,39 @@ canonical member, so the derived member **must** derive from it. Resolving
 the derived member purely from its own notes looked cleaner and silently
 broke editing — an edit to `close` would have done nothing.
 
+### 2026-08-12 — Glassy was a xylophone
+
+Ry: "still feels much more like a xylophone — slightly metallic, sharp." He
+was describing the file. A xylophone bar is undercut until its first overtone
+lands exactly a twelfth above the note — 3x the fundamental — and the `19`
+layer was 2.9966x. Struck, harmonic, short. It had been a xylophone all along.
+
+That is also why three rounds of tuning kept landing on bell, then tin, then
+xylophone: every attempt adjusted the *strength* and *length* of a harmonic
+partial, and glass's whole character is that it barely has one.
+
+| | xylophone | glass |
+|---|---|---|
+| partials | strong, harmonic (3x) | weak, **inharmonic** (~2.3x) |
+| decay | fast, percussive | **long** — it rings |
+| identity | the strike | the pure, sustained fundamental |
+
+So the preset kept its numbers and took its real name, and a new **Glassy**
+was built on the opposite recipe: one dominant sine plus a single partial at
+14.5 semitones (2.32x — deliberately not a musical interval, so it colours the
+note instead of harmonising), gain 0.075, tail **below 1** so it fades before
+the note. Length lives in the fundamental. Ten presets now.
+
+**A measurement caveat worth keeping.** The decay-brightness ratio used in
+earlier rounds reads garbage below about −60 dBFS. It reported the new Glassy
+at ×1.54 — the bell signature — from a window sitting at −83.8 dBFS, fourteen
+bits under peak. Gated to where the sound is audible it is ×1.19, between Soft
+(1.08) and Warm (1.26). Gate that metric by level before trusting it.
+
+The preset **id** changed, which is only safe because no URL has shipped. An
+unknown id falls back to Soft with the "did not arrive intact" warning —
+verified in the browser, not assumed.
+
 ## Next
 
 0. **Ry is writing per-sound shape/flavour definitions.** Those land next and
@@ -172,11 +205,13 @@ broke editing — an edit to `close` would have done nothing.
    argued out of: direction stays meaningful, and the duration window is a real
    constraint at both ends.
 
-1. **Tune the nine presets by ear — round four.** Round three put every
-   landing on a consonant interval. Still open by ear: whether Glassy is round
-   enough now (twelfth cut to 0.1, cutoff 3200, attack 6 ms — energy above
-   2 kHz halved), whether `send` landing a major second below base is too high
-   for "lower register", and whether Crisp reads as a click yet.
+1. **Tune the ten presets by ear.** Confirmed good by Ry: the in-tune
+   landings, pair distinctness, `tap`/`error`, `open`/`toggle.on`, and
+   Xylophone's character. Still open: whether the new **Glassy** actually reads
+   as glass — it is the least-tested preset in the set and the only one built
+   from scratch rather than tuned. Also whether `send` landing a major second
+   below base is too high for "lower register", and whether Crisp reads as a
+   click yet.
 
    Superseded — round one opened up the
    envelope-shape axis (decay:release now spans 1.3 to 6.8 where it spanned
