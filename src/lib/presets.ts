@@ -1,6 +1,6 @@
 // ==============================================
 // CHARACTER PRESETS
-// Nine of them, as plain data.
+// Ten of them, as plain data.
 //
 // A preset applies to the WHOLE set: base frequency,
 // envelope shape, filter, noise, per-tier gain and
@@ -13,10 +13,12 @@
 // set is defined semantically as one or two notes at
 // musical intervals from the base; a preset expands
 // each of those into a small stack — a detuned twin
-// for warmth, an octave that rings on for shimmer, a
-// fifth for the sci-fi stack. Without them, Glassy is
-// Soft with a brighter filter. With them, it is a
-// bell.
+// for warmth, an inharmonic partial for glass, a fifth
+// for the sci-fi stack. Without them, Glassy is Soft
+// with a brighter filter. With them, it is a struck
+// rim — and Xylophone, which differs from it mostly in
+// where its partial sits, is a different instrument
+// entirely.
 //
 // Nothing here is a code branch, and nothing anywhere
 // branches on a preset id. A tenth preset is a tenth
@@ -29,7 +31,16 @@
 import type { Tier, Waveform } from "./sounds.js"
 
 export type PresetId =
-  "soft" | "crisp" | "minimal" | "warm" | "bloopy" | "glassy" | "playful" | "retro" | "scifi"
+  | "soft"
+  | "crisp"
+  | "minimal"
+  | "warm"
+  | "bloopy"
+  | "glassy"
+  | "xylophone"
+  | "playful"
+  | "retro"
+  | "scifi"
 
 /**
  * One voice a preset adds on top of each semantic note.
@@ -264,8 +275,72 @@ export const PRESETS: Record<PresetId, PresetDef> = {
   glassy: {
     id: "glassy",
     name: "Glassy",
-    blurb: "Struck and clear. A bright octave-and-a-twelfth shimmer that fades before the note does.",
+    blurb: "A struck rim. Almost a pure tone, ringing longer than anything else here.",
     suits: "premium, editorial, anything unhurried",
+    // 880. High enough to be bright on its own — most of what reads as "clear"
+    // here is the pitch, not the spectrum, because there is barely any spectrum.
+    baseHz: 880,
+    // Glass is nearly a sine, and that is the whole point of it.
+    //
+    // The version of this preset that used to be called Glassy had a partial a
+    // twelfth up — exactly 3x the fundamental — which is how a xylophone bar is
+    // tuned, and it read as one no matter how the strength and length were
+    // adjusted. A struck rim does the opposite: its modes are INHARMONIC and
+    // weak, sitting at rough ratios of 2.3x and 4.2x rather than on any
+    // interval, so they colour the note instead of harmonising with it.
+    //
+    // 14.5 semitones is 2.32x — not a musical interval, which is deliberate:
+    // anything landing on one starts sounding like a second note. At this gain
+    // it is air, not a note. A second partial at 26 was tried and dropped; it
+    // put `notification`'s top note at 8874 Hz, over the 6 kHz ceiling, and one
+    // dominant mode is closer to real glass regardless.
+    //
+    // Its tail is BELOW 1 so it fades before the note. Length belongs in the
+    // fundamental here — a partial that outlives the note is the bell this
+    // preset spent three rounds escaping.
+    layers: [
+      { interval: 0, waveform: "sine", gain: 1 },
+      { interval: 14.5, waveform: "sine", gain: 0.075, tail: 0.9 },
+    ],
+    // Fast enough to be struck, not so fast it clicks. 2 ms is 1.8 cycles at
+    // this base — see Xylophone's attack note for why cycles are the unit that
+    // matters.
+    attackMs: 2,
+    // The longest envelope in the set, and the identity of the preset. Glass
+    // rings; that is what it does. This is as long as the duration budget
+    // allows — `send` and `receive` carry a 1.3 length scale on top, which puts
+    // them at 418 ms against the notable ceiling of 450.
+    decayMs: 185,
+    sustain: 0,
+    releaseMs: 135,
+    // Barely swoops. A struck rim holds its pitch, and with this much ring time
+    // a glide would be the most obvious thing in the sound.
+    sweepScale: 0.65,
+    intrinsicSweep: 0.4,
+    sweepShare: 0.12,
+    glide: "smooth",
+    filterType: "lowpass",
+    // Wide open, and it does very little — three sines have nothing above them
+    // to remove. It is here to keep the top partial from getting glassy in the
+    // wrong sense on bright playback.
+    filterCutoffHz: 9000,
+    filterQ: 0.5,
+    noise: null,
+    gain: { subtle: 0.15, notable: 0.24, alert: 0.32 },
+    envScale: { subtle: 0.4, notable: 1.0, alert: 1.5 },
+  },
+
+  xylophone: {
+    id: "xylophone",
+    name: "Xylophone",
+    // Named for what it is rather than what it was aiming at. A xylophone bar
+    // is undercut until its first overtone sits exactly a twelfth above the
+    // note — three times the fundamental — and that is precisely the `19`
+    // layer below. Struck, harmonic, gone quickly. It spent a while called
+    // Glassy and kept being described as metallic, sharp, xylophone-ish,
+    // because it was a xylophone the whole time.
+    blurb: "Struck bars. A twelfth rings above every note and is gone before the note is.",
+    suits: "playful products that still need to feel precise",
     baseHz: 760,
     // The partials are SHORTER than the note, not longer, and that inversion is
     // the whole difference between glass and metal.
@@ -456,6 +531,7 @@ export const PRESET_IDS: PresetId[] = [
   "warm",
   "bloopy",
   "glassy",
+  "xylophone",
   "playful",
   "retro",
   "scifi",
