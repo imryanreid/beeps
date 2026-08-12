@@ -249,7 +249,7 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     // A deep, slow glide on a sine through a low resonant filter is the whole
     // "bloop". The resonance does real work here — at Q 0.7 this is just a soft
     // tone; at 3.5 the filter rings enough to give the drop a body.
-    sweepScale: 1.8,
+    sweepScale: 1.4,
     intrinsicSweep: 4,
     sweepShare: 0.42,
     glide: "smooth",
@@ -291,10 +291,17 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     // left. Worth keeping, not worth mistaking for the fix.
     layers: [
       { interval: 0, waveform: "sine", gain: 1 },
-      { interval: 12, waveform: "sine", gain: 0.4, tail: 0.55 },
-      { interval: 19, waveform: "sine", gain: 0.22, tail: 0.4 },
+      { interval: 12, waveform: "sine", gain: 0.42, tail: 0.55 },
+      // The twelfth is quiet on purpose. An octave reinforces the note under
+      // it; a twelfth is a fifth, a NEW pitch class, and at any strength it
+      // reads as tin rather than as glass. It is here for the sparkle in the
+      // first few milliseconds, not to be heard as a note of its own.
+      { interval: 19, waveform: "sine", gain: 0.1, tail: 0.4 },
     ],
-    attackMs: 3,
+    // 6 ms, not 3. Fast enough to still read as struck, slow enough to lose the
+    // edge on the transient — "not so sharp" is largely the onset, not the
+    // spectrum.
+    attackMs: 6,
     // Longer than they were, because the ring that used to carry this preset's
     // length is gone: the partials now fade BEFORE the note instead of after
     // it, which took `toggle.on` down to 68 ms — under the floor where the ear
@@ -315,7 +322,12 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     // resonant peak on top of dense partials is the other half of why this read
     // as metal. Nothing here should be emphasised over anything else — the
     // partials are the character, so the filter's job is to stay out of the way.
-    filterCutoffHz: 5200,
+    // 3200, down from 5200. The stack is three sines with nothing above the
+    // twelfth, so a cutoff up at 5.2 kHz was not removing anything — it was
+    // just letting the partials through unrounded. Bringing it down to sit
+    // between the twelfth and the top of the range takes the edge off them
+    // without touching the note.
+    filterCutoffHz: 3200,
     filterQ: 0.7,
     noise: null,
     gain: { subtle: 0.16, notable: 0.26, alert: 0.34 },
@@ -339,7 +351,7 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     // The leaps are the joke. Everything the set says rises or falls, this says
     // twice as hard — without ever reversing a direction, because direction is
     // meaning even when the tone is silly.
-    sweepScale: 1.7,
+    sweepScale: 1.4,
     intrinsicSweep: 3,
     sweepShare: 0.2,
     glide: "smooth",
@@ -365,7 +377,7 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     decayMs: 95,
     sustain: 0,
     releaseMs: 14,
-    sweepScale: 1.5,
+    sweepScale: 1.4,
     intrinsicSweep: 2,
     sweepShare: 0.16,
     // The one preset that does not slide. Chiptune hardware had no portamento —
@@ -400,7 +412,7 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     // sweep passes THROUGH the harsh band rather than sitting in it — which is
     // exactly what a zap is, and why the frequency rule is about where a sound
     // lands, not everywhere it has been.
-    sweepScale: 1.8,
+    sweepScale: 1.4,
     intrinsicSweep: 6,
     sweepShare: 0.1,
     glide: "smooth",

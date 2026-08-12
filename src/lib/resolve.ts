@@ -359,26 +359,51 @@ function buildVoices(
   return voices
 }
 
+
 /**
- * Rewrite `derived`'s pitches as `canonical`'s, swapped.
+ * Give `derived` the pitches its canonical partner implies.
  *
- * The inversion is computed here rather than declared in two specs, because
- * declared mirrors stop mirroring the moment a preset scales their sweeps —
- * each spec scales toward its own destination, so `toggle.on` and
- * `toggle.off` drift apart by several Hz on every preset but a neutral one.
- * Deriving makes it exact by construction and means a hand-edited URL cannot
- * desynchronise a pair either.
+ * The two members traverse the SAME PAIR OF NOTES in opposite directions, the
+ * derived one transposed down by the pair's drop. Writing both out in
+ * semitones, for canonical centre C, travel T, drop D and sweep scale s:
  *
- * Only the pitches transfer. Duration, envelope, filter and gain stay the
- * derived sound's own, so a `close` may legitimately be quieter or shorter
- * than its `open`.
+ *     canonical    onset  C + T - Ts      landing  C + T
+ *     derived      onset  C - D + Ts      landing  C - D
+ *
+ * so the landings sit a fixed `T + D` apart — a musical interval, identical on
+ * every preset — while the onsets sit `T + D - 2Ts` apart, which depends on how
+ * far this preset sweeps. Two different constants, because the two ends are not
+ * the same distance apart.
+ *
+ * This replaced swapping the canonical member's resolved frequencies. A swap is
+ * a tighter invariant — an exact palindrome — and it was the wrong one: the
+ * canonical's ONSET is `to + (from - to) * sweepScale`, a preset-dependent and
+ * generally fractional semitone, and swapping put that on the derived member's
+ * LANDING. Every falling half of every pair therefore landed between two notes,
+ * differently on each preset: `receive` came down forty cents sharp of a fourth
+ * on Soft, on a tritone on Minimal, and a full quarter-tone off on Retro. It
+ * sounded sad and faintly broken because it was out of tune, and it sounded
+ * inconsistent across presets because the amount it was out by varied with
+ * `sweepScale`. `delete` was the control: not a pair member, lands on its
+ * declared octave, and was the one falling sound in the set that sounded clean.
+ *
+ * What is given up is the exact frequency palindrome. What is bought is that
+ * both halves land on a real interval, the same one everywhere.
+ *
+ * Only pitch transfers. Duration, envelope, filter and gain stay the derived
+ * sound's own, so a `close` may legitimately be quieter or shorter than its
+ * `open`.
  */
-function invertPitches(derived: Sound, canonical: Sound, dropSemitones: number): Sound {
+function deriveFromCanonical(
+  derived: Sound,
+  canonical: Sound,
+  travel: number,
+  dropSemitones: number,
+  preset: PresetDef,
+): Sound {
   const source = canonical.voices.filter((v) => v.kind === "osc")
-  // The whole gesture drops, so the interval it travels is untouched — it just
-  // happens lower. That is what makes "off is lower than on" true of the sound
-  // and not only of its direction.
-  const drop = Math.pow(2, -dropSemitones / 12)
+  const landing = Math.pow(2, -(travel + dropSemitones) / 12)
+  const onset = Math.pow(2, -(travel + dropSemitones - 2 * travel * preset.sweepScale) / 12)
   let i = 0
   return {
     ...derived,
@@ -390,8 +415,8 @@ function invertPitches(derived: Sound, canonical: Sound, dropSemitones: number):
         ...v,
         pitch: {
           ...v.pitch,
-          startHz: clamp(Math.max(from.pitch.endHz * drop, MIN_MUSICAL_HZ), ...LIMITS.freqHz),
-          endHz: clamp(Math.max(from.pitch.startHz * drop, MIN_MUSICAL_HZ), ...LIMITS.freqHz),
+          startHz: clamp(Math.max(from.pitch.startHz * onset, MIN_MUSICAL_HZ), ...LIMITS.freqHz),
+          endHz: clamp(Math.max(from.pitch.endHz * landing, MIN_MUSICAL_HZ), ...LIMITS.freqHz),
         },
       }
     }),
@@ -467,14 +492,20 @@ export function resolve(config: SetConfig): SoundSet {
   })
 
   // Inversion partners take their pitches from the canonical member, now that
-  // every sound exists. This is the one pass that has to run after the map.
+  // every sound exists. This pass is the single authority on a derived
+  // member's pitch, which is what makes an edit to either half move both —
+  // pitch deltas are only ever stored on the canonical side.
   const byId = new Map<SoundId, Sound>(built.map((s) => [s.id, s]))
   for (const pair of PAIRS) {
     if (pair.kind !== "inversion") continue
     const canonical = byId.get(pair.a)
     const derived = byId.get(pair.b)
-    if (canonical && derived) {
-      byId.set(pair.b, invertPitches(derived, canonical, pair.dropSemitones ?? 0))
+    const spec = SOUND_SPECS.find((x) => x.id === pair.b)
+    if (canonical && derived && spec) {
+      byId.set(
+        pair.b,
+        deriveFromCanonical(derived, canonical, spec.travel, pair.dropSemitones ?? 0, preset),
+      )
     }
   }
 
@@ -581,6 +612,7 @@ export function frequencySpan(sound: Sound): { minHz: number; maxHz: number } {
 export function pairedEdits(
   id: SoundId,
   patch: SoundDelta,
+  preset: PresetDef = PRESETS[DEFAULT_PRESET],
 ): { id: SoundId; patch: SoundDelta }[] {
   const { startHz, endHz, ...character } = patch
   const hasPitch = startHz !== undefined || endHz !== undefined
@@ -599,12 +631,30 @@ export function pairedEdits(
   // nothing, and the two can't be set to disagree.
   if (inverted && isDerivedPitch(id)) {
     const target = pitchCanonical(id)
-    // Undo the register drop on the way up, or every edit to the derived side
-    // would walk the canonical member down by another few semitones.
-    const lift = Math.pow(2, pairDropSemitones(id) / 12)
+    const spec = SOUND_SPECS.find((s) => s.id === id)!
+    const travel = spec.travel
+    const drop = pairDropSemitones(id)
+    const scale = preset.sweepScale
+
+    // The two ends no longer lift by the same amount, because the pair no
+    // longer mirrors in resolved frequency — it mirrors in NOTES, and each
+    // member then computes its own glide.
+    //
+    // Writing out the two members in semitones, for canonical centre C,
+    // travel T, drop D and the preset's sweep scale s:
+    //
+    //   canonical   start C + T - Ts     end C + T
+    //   derived     start C - D + Ts     end C - D
+    //
+    // so the landings differ by a fixed T + D — a musical interval, the same
+    // on every preset — while the onsets differ by T + D - 2Ts, which depends
+    // on how far this preset sweeps. One constant would be wrong for one of
+    // the two ends, which is why there are two.
+    const liftEnd = Math.pow(2, (travel + drop) / 12)
+    const liftStart = Math.pow(2, (travel + drop - 2 * travel * scale) / 12)
     const mirrored: SoundDelta = {}
-    if (startHz !== undefined) mirrored.endHz = startHz * lift
-    if (endHz !== undefined) mirrored.startHz = endHz * lift
+    if (startHz !== undefined) mirrored.startHz = startHz * liftStart
+    if (endHz !== undefined) mirrored.endHz = endHz * liftEnd
     out.push({ id: target, patch: mirrored })
     return out
   }
@@ -618,8 +668,9 @@ export function pairedEdits(
 
 /** Merge a patch into a config, applying pair mirroring. */
 export function applyEdit(config: SetConfig, id: SoundId, patch: SoundDelta): SetConfig {
+  const preset = PRESETS[config.presetId] ?? PRESETS[DEFAULT_PRESET]
   const deltas = { ...config.deltas }
-  for (const edit of pairedEdits(id, patch)) {
+  for (const edit of pairedEdits(id, patch, preset)) {
     deltas[edit.id] = { ...deltas[edit.id], ...edit.patch }
   }
   return { ...config, deltas }

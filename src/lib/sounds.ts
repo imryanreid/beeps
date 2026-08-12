@@ -365,7 +365,7 @@ export const SOUND_SPECS: SoundSpec[] = [
     // Further than a toggle travels, and gliding for three times as long. A
     // drawer coming out is a bigger move than a switch flipping, and the two
     // were previously identical in both.
-    travel: 8,
+    travel: 7,
     lengthScale: 1.15,
     when: "A surface the user opened: menu, sheet, drawer, disclosure.",
     whenNot: "Anything that opens by itself, including tooltips on hover.",
@@ -377,7 +377,7 @@ export const SOUND_SPECS: SoundSpec[] = [
     shape: "collapse",
     tier: "subtle",
     center: 2,
-    travel: 8,
+    travel: 7,
     lengthScale: 1.15,
     when: "The same surface dismissed.",
     whenNot: "Route changes and page navigation — those are not closes.",
@@ -392,7 +392,7 @@ export const SOUND_SPECS: SoundSpec[] = [
     // half of this pair, so it spans the same notes upside down and its middle
     // lands a fourth ABOVE this number — which is how it ended up overlapping
     // `close`. Dropping the pair is what actually makes "lower" true of both.
-    center: -8,
+    center: -9,
     travel: 7,
     // The two longest sounds that are not alerts. A message leaving is the most
     // consequential thing in the set that is not an interruption, and at tier
@@ -407,7 +407,7 @@ export const SOUND_SPECS: SoundSpec[] = [
     register: "lower",
     shape: "scoopDown",
     tier: "notable",
-    center: -8,
+    center: -9,
     travel: 7,
     lengthScale: 1.3,
     when: "Inbound content arriving while the user is present and looking.",
@@ -492,7 +492,7 @@ export const SOUND_SPECS: SoundSpec[] = [
     // any preset short enough to suppress pitch. Dropping the landing below
     // everything else in the set is what makes it final.
     center: -12,
-    travel: 10,
+    travel: 12,
     // The transient is the thud of it landing. Worth keeping even though the
     // valence no longer asks for one.
     forceNoise: true,
@@ -557,7 +557,7 @@ export const PAIRS: Pair[] = [
   // `open` — a falling gesture mirroring a rising one begins where the other
   // ends, so a small drop moves the landing without moving the onset. Five
   // puts it lower at both ends, which is what "off is lower" has to mean.
-  { a: "open", b: "close", kind: "inversion", dropSemitones: 5 },
+  { a: "open", b: "close", kind: "inversion", dropSemitones: 7 },
   { a: "send", b: "receive", kind: "inversion", dropSemitones: 0 },
   { a: "toggle.on", b: "toggle.off", kind: "inversion", dropSemitones: 5 },
   { a: "success", b: "error", kind: "contrast" },

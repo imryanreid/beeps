@@ -182,17 +182,77 @@ describe("direction is meaning, and every preset preserves it", () => {
 const dropOf = (id: SoundId) => Math.pow(2, pairDropSemitones(id) / 12)
 
 describe("pairs", () => {
-  it("mirrors the contour exactly, transposed by the pair's drop", () => {
-    // The invariant is a mirror PLUS a constant transposition. Multiplying the
-    // derived member back up by its drop has to land exactly on the canonical
-    // member's opposite end — that constant ratio is what makes the two read
-    // as one gesture rather than as two sounds that happen to move oppositely.
+  it("mirrors at the note, so both members land on a real interval", () => {
+    // This used to assert an exact palindrome in FREQUENCY: the derived member
+    // was the canonical one's resolved pitches swapped, lifted by the drop.
+    // That is a tighter invariant than this one and it was the wrong invariant.
+    //
+    // A canonical member's resolved onset is `to + (from - to) * sweepScale` —
+    // a preset-dependent, generally fractional semitone. Swapping put THAT on
+    // the derived member's landing, so every falling half of every pair landed
+    // between two notes, differently on each preset: `receive` came down 40
+    // cents sharp of a fourth on Soft, on a tritone on Minimal, and 50 cents —
+    // a literal quarter-tone — off on Retro. It read as sad and slightly
+    // broken, which is exactly what it was. `delete` was the control: not a
+    // pair member, lands on its declared octave, and was the one sound in the
+    // set that sounded clean.
+    //
+    // So the pair mirrors at the NOTE and each member resolves its own glide.
+    // Both land on declared integer intervals, the same on every preset, and
+    // the exact frequency palindrome is what gets given up for it.
     for (const p of PAIRS.filter((x) => x.kind === "inversion")) {
-      const a = primary(p.a)
-      const b = primary(p.b)
-      const lift = dropOf(p.b)
-      expect(b.pitch.endHz * lift, `${p.a}/${p.b} start`).toBeCloseTo(a.pitch.startHz, 4)
-      expect(b.pitch.startHz * lift, `${p.a}/${p.b} end`).toBeCloseTo(a.pitch.endHz, 4)
+      for (const presetId of PRESET_IDS) {
+        const a = primary(p.a, presetId)
+        const b = primary(p.b, presetId)
+        const base = setFor(presetId).baseHz
+        const semis = (hz: number) => Math.log2(hz / base) * 12
+
+        // Both landings sit on the semitone grid...
+        for (const [id, v] of [
+          [p.a, a],
+          [p.b, b],
+        ] as const) {
+          const s = semis(v.pitch.endHz)
+          expect(Math.abs(s - Math.round(s)), `${presetId}/${id} landing off-grid`).toBeLessThan(
+            0.01,
+          )
+        }
+        // ...a fixed interval apart, identical across every preset.
+        expect(
+          semis(a.pitch.endHz) - semis(b.pitch.endHz),
+          `${presetId} ${p.a}/${p.b} landing interval`,
+        ).toBeCloseTo(SOUND_SPECS.find((s) => s.id === p.b)!.travel + pairDropSemitones(p.b), 6)
+        // ...and they travel the same distance in opposite directions, which
+        // is what still makes them one gesture rather than two sounds.
+        expect(
+          semis(b.pitch.endHz) - semis(b.pitch.startHz),
+          `${presetId} ${p.a}/${p.b} travel`,
+        ).toBeCloseTo(-(semis(a.pitch.endHz) - semis(a.pitch.startHz)), 6)
+      }
+    }
+  })
+
+  it("gives every sound a consonant landing", () => {
+    // The thing the mirror bug was really breaking. A minor third or minor
+    // sixth reads as sad and a semitone or tritone reads as broken, so the
+    // falling half of a neutral pair may not land on one — "neutral opposite",
+    // not "sad opposite". Rising halves were always fine; they land on their
+    // own declared `to` and never inherited anything.
+    const CONSONANT = new Set([0, 2, 4, 5, 7, 9]) // unison, M2, M3, P4, P5, M6
+    for (const presetId of PRESET_IDS) {
+      const set = setFor(presetId)
+      for (const spec of SOUND_SPECS) {
+        const v = primary(spec.id, presetId)
+        const semis = Math.log2(v.pitch.endHz / set.baseHz) * 12
+        // Absolute distance, not pitch class: a major third DOWN is a major
+        // third, and folding it into an octave would call it a minor sixth and
+        // fail `error` for being the interval it was chosen to be.
+        const pitchClass = Math.abs(Math.round(semis)) % 12
+        expect(
+          CONSONANT.has(pitchClass),
+          `${presetId}/${spec.id} lands on pitch class ${pitchClass}`,
+        ).toBe(true)
+      }
     }
   })
 
@@ -238,9 +298,18 @@ describe("pairs", () => {
     // its opposite, so dropping `receive` made it sound like a lesser event
     // instead of a matching one.
     expect(pairDropSemitones("receive")).toBe(0)
-    const send = primary("send")
-    const receive = primary("receive")
-    expect(receive.pitch.startHz).toBeCloseTo(send.pitch.endHz, 4)
+    // Same two notes, traversed in opposite directions — which is what "the
+    // same height" means now that each member resolves its own glide. Their
+    // resolved midpoints differ by travel x (1 - sweepScale), so they are not
+    // identical in Hz any more; the assertion is that neither sits meaningfully
+    // above the other.
+    for (const presetId of PRESET_IDS) {
+      const send = primary("send", presetId)
+      const receive = primary("receive", presetId)
+      const mid = (v: typeof send) => Math.sqrt(v.pitch.startHz * v.pitch.endHz)
+      const apart = Math.abs(Math.log2(mid(send) / mid(receive)) * 12)
+      expect(apart, `${presetId} send/receive centres`).toBeLessThan(3)
+    }
   })
 
   it("stores a canonical pitch edit once — the partner derives from it", () => {
@@ -251,37 +320,37 @@ describe("pairs", () => {
     expect(edits).toEqual([{ id: "toggle.on", patch: { startHz: 500, endHz: 900 } }])
   })
 
-  it("routes a pitch edit on the derived side upstream, mirrored and lifted", () => {
-    // The drop is undone on the way up, or every edit to the derived side
-    // would walk the canonical member down by another few semitones.
-    const lift = dropOf("toggle.off")
+  it("routes a pitch edit on the derived side upstream", () => {
+    // Pitch lives on the canonical member only, so an edit to the derived side
+    // is rewritten as the canonical edit that produces it. The exact factors
+    // are asserted by round-trip below rather than restated here — repeating
+    // the formula would only check it against itself.
     const edits = pairedEdits("toggle.off", { startHz: 900, endHz: 500 })
     expect(edits).toHaveLength(1)
     expect(edits[0].id).toBe("toggle.on")
-    expect(edits[0].patch.endHz).toBeCloseTo(900 * lift, 6)
-    expect(edits[0].patch.startHz).toBeCloseTo(500 * lift, 6)
+    expect(edits[0].patch.startHz).toBeGreaterThan(0)
+    expect(edits[0].patch.endHz).toBeGreaterThan(0)
   })
 
   it("keeps character on the sound that was edited, even on the derived side", () => {
     const edits = pairedEdits("toggle.off", { startHz: 900, attackMs: 25 })
     expect(edits).toContainEqual({ id: "toggle.off", patch: { attackMs: 25 } })
-    const upstream = edits.find((e) => e.id === "toggle.on")!
-    expect(upstream.patch.endHz).toBeCloseTo(900 * dropOf("toggle.off"), 6)
+    expect(edits.find((e) => e.id === "toggle.on")?.patch.startHz).toBeGreaterThan(0)
   })
 
-  it("survives editing the derived side end-to-end", () => {
-    // Set close's pitches directly; they should come back exactly, with open
-    // sitting a drop above.
-    const config = applyEdit(DEFAULT_CONFIG, "close", { startHz: 900, endHz: 500 })
-    const set = resolve(config)
-    const open = set.sounds.find((s) => s.id === "open")!.voices[0]
-    const close = set.sounds.find((s) => s.id === "close")!.voices[0]
-    if (open.kind !== "osc" || close.kind !== "osc") throw new Error("expected osc")
-    const lift = dropOf("close")
-    expect(close.pitch.startHz).toBeCloseTo(900, 4)
-    expect(close.pitch.endHz).toBeCloseTo(500, 4)
-    expect(open.pitch.startHz).toBeCloseTo(500 * lift, 4)
-    expect(open.pitch.endHz).toBeCloseTo(900 * lift, 4)
+  it("survives editing the derived side end-to-end, on every preset", () => {
+    // The property that matters, and the one the routing exists to provide:
+    // ask for a pitch on the derived side and get exactly that pitch back,
+    // even though the value is stored upstream on the canonical member and
+    // travels through two preset-dependent factors on the way there and back.
+    for (const presetId of PRESET_IDS) {
+      const config = applyEdit({ presetId, deltas: {} }, "close", { startHz: 900, endHz: 500 })
+      expect(config.deltas.close, `${presetId} stores nothing on the derived side`).toBeUndefined()
+      const close = resolve(config).sounds.find((s) => s.id === "close")!.voices[0]
+      if (close.kind !== "osc") throw new Error("expected osc")
+      expect(close.pitch.startHz, `${presetId} close onset`).toBeCloseTo(900, 4)
+      expect(close.pitch.endHz, `${presetId} close landing`).toBeCloseTo(500, 4)
+    }
   })
 
   it("does not mirror character — only direction", () => {
@@ -295,14 +364,22 @@ describe("pairs", () => {
   })
 
   it("keeps a pair inverted through applyEdit", () => {
-    const config = applyEdit(DEFAULT_CONFIG, "open", { startHz: 600, endHz: 800 })
-    const set = resolve(config)
+    // Editing the canonical member has to move the derived one, or the two
+    // drift apart the first time anyone touches either.
+    const before = resolve(DEFAULT_CONFIG).sounds.find((s) => s.id === "close")!.voices[0]
+    const set = resolve(applyEdit(DEFAULT_CONFIG, "open", { startHz: 600, endHz: 800 }))
     const open = set.sounds.find((s) => s.id === "open")!.voices[0]
     const close = set.sounds.find((s) => s.id === "close")!.voices[0]
-    if (open.kind !== "osc" || close.kind !== "osc") throw new Error("expected osc")
-    const lift = dropOf("close")
-    expect(close.pitch.endHz * lift).toBeCloseTo(open.pitch.startHz, 4)
-    expect(close.pitch.startHz * lift).toBeCloseTo(open.pitch.endHz, 4)
+    if (open.kind !== "osc" || close.kind !== "osc" || before.kind !== "osc")
+      throw new Error("expected osc")
+    expect(close.pitch.endHz).not.toBeCloseTo(before.pitch.endHz, 1)
+    // Still opposite directions, still a fixed interval apart at the landing.
+    expect(close.pitch.endHz).toBeLessThan(close.pitch.startHz)
+    expect(open.pitch.endHz).toBeGreaterThan(open.pitch.startHz)
+    expect(Math.log2(open.pitch.endHz / close.pitch.endHz) * 12).toBeCloseTo(
+      SOUND_SPECS.find((x) => x.id === "close")!.travel + pairDropSemitones("close"),
+      6,
+    )
   })
 })
 
@@ -788,11 +865,19 @@ describe("preset layers — the thing that makes presets instruments", () => {
         .find((s) => s.id === "close")!
         .voices.filter((v) => v.kind === "osc")
       expect(close.length, presetId).toBe(open.length)
-      const lift = dropOf("close")
+      // Every layer transposes by the same interval, so the stack keeps its
+      // internal intervals — the shimmer stays a twelfth above its own note
+      // rather than landing on the wrong half of the pair.
       for (const [i, o] of open.entries()) {
         const c = close[i]
         if (o.kind !== "osc" || c.kind !== "osc") throw new Error("expected osc")
-        expect(c.pitch.endHz * lift, `${presetId} layer ${i}`).toBeCloseTo(o.pitch.startHz, 4)
+        const first = open[0]
+        const firstC = close[0]
+        if (first.kind !== "osc" || firstC.kind !== "osc") throw new Error("expected osc")
+        expect(
+          Math.log2(c.pitch.endHz / firstC.pitch.endHz) * 12,
+          `${presetId} layer ${i}`,
+        ).toBeCloseTo(Math.log2(o.pitch.endHz / first.pitch.endHz) * 12, 4)
       }
     }
   })
