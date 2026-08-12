@@ -296,12 +296,28 @@ export const PRESETS: Record<PresetId, PresetDef> = {
       // it; a twelfth is a fifth, a NEW pitch class, and at any strength it
       // reads as tin rather than as glass. It is here for the sparkle in the
       // first few milliseconds, not to be heard as a note of its own.
-      { interval: 19, waveform: "sine", gain: 0.1, tail: 0.4 },
+      // Loud at the strike and gone almost immediately — 0.28 with a 0.4 tail,
+      // not the 0.1 it was cut to. Quiet partials are what made this muffled;
+      // it was LONG partials that made it tinny, and those are two different
+      // settings. The tail is what keeps them apart.
+      { interval: 19, waveform: "sine", gain: 0.28, tail: 0.4 },
     ],
-    // 6 ms, not 3. Fast enough to still read as struck, slow enough to lose the
-    // edge on the transient — "not so sharp" is largely the onset, not the
-    // spectrum.
-    attackMs: 6,
+    // 1.5 ms, down from 6, and this is the setting that made most of the set
+    // sound underwater.
+    //
+    // What matters is not the millisecond figure but how many CYCLES of its own
+    // note the onset covers: a struck object reaches full amplitude inside one.
+    // At 6 ms this preset took 4.6 cycles at its base and 10.2 on
+    // `notification` at 1706 Hz — a swell, not a strike, and a swelled sine is
+    // exactly what "underwater" describes. `delete` was the exception for the
+    // same reason it was the exception twice before: it lands lowest, at 380 Hz,
+    // where 6 ms is only 2.3 cycles. The set's attack was a fixed number of
+    // milliseconds across sounds spanning more than two octaves, so how struck
+    // each one sounded varied fourfold.
+    //
+    // 1.5 ms is under one cycle at the bottom of the set and 2.6 at the top,
+    // which is inside "struck" everywhere.
+    attackMs: 1.5,
     // Longer than they were, because the ring that used to carry this preset's
     // length is gone: the partials now fade BEFORE the note instead of after
     // it, which took `toggle.on` down to 68 ms — under the floor where the ear
@@ -322,11 +338,16 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     // resonant peak on top of dense partials is the other half of why this read
     // as metal. Nothing here should be emphasised over anything else — the
     // partials are the character, so the filter's job is to stay out of the way.
-    // 3200, down from 5200. The stack is three sines with nothing above the
-    // twelfth, so a cutoff up at 5.2 kHz was not removing anything — it was
-    // just letting the partials through unrounded. Bringing it down to sit
-    // between the twelfth and the top of the range takes the edge off them
-    // without touching the note.
+    // 3200, down from 5200. Well above the twelfth at this preset's base, so it
+    // rounds the partials off rather than removing them.
+    //
+    // A pitch-tracking cutoff was tried here and reverted. Holding the ratio of
+    // cutoff to note constant across the set sounded like the explanation for
+    // why the low sounds kept their sparkle and the high ones did not, and it
+    // measured as a change of under 3.5 dB in the partials, in no consistent
+    // direction — these partials are short enough that the filter has very
+    // little of them to act on. What actually made the set sound muffled was
+    // the attack. See below.
     filterCutoffHz: 3200,
     filterQ: 0.7,
     noise: null,
