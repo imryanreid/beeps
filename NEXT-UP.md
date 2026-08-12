@@ -194,6 +194,50 @@ The preset **id** changed, which is only safe because no URL has shipped. An
 unknown id falls back to Soft with the "did not arrive intact" warning —
 verified in the browser, not assumed.
 
+### 2026-08-12 — a wider palette
+
+Ry: "the different presets still aren't sounding dramatically different to
+me. What did we defer that could give it a much more distinct, varied set of
+voices?" The honest answer was that nothing was deferred — the palette was
+narrow by construction. Every preset was the same chain: one to three
+oscillators from four waveforms, one static filter, an AD envelope. One
+timbral mechanism, so every preset was necessarily the same instrument
+adjusted.
+
+Three things landed, in the order they were built:
+
+**FM.** A second oscillator connected to the carrier's *frequency* rather
+than mixed into the output. The ratio decides where sidebands fall — whole
+numbers on harmonics (body), fractional between them (struck metal, wood,
+glass). Six presets take one. Spectral flatness on `tap` roughly doubles for
+the three meant to be distinct instruments (Xylophone 0.102 → 0.201, Sci-Fi
+0.263 → 0.504, Glassy 0.077 → 0.135) and barely moves for Warm and Bloopy,
+which use unison and sub-harmonic ratios on purpose. Across the set flatness
+now spans 12.3×.
+
+**Space.** A short delay fed back through a lowpass, so each pass is quieter
+*and* darker. Four presets are wet, six dry. Audible time roughly doubles on
+the wet ones. Its tail counts against `DURATION_BUDGET`, and the constraint
+that binds is the **subtle** tier, not notable — `open` on Xylophone is
+barely 100 ms dry, so every room here is sized by its shortest sound.
+
+**Per-sound presets.** Timbre varies per sound; **pitch stays global**, so a
+mixed set is one key with different instruments rather than eleven unrelated
+sounds. Pairs are locked because `close` derives from `open` through that
+preset's `sweepScale`. URL form: `tap=vcrisp.f720` — dot-separated, since
+`encodeDelta` splits on dots and a comma silently ate every co-located edit.
+
+**Two measurement lessons from this round**, both of which produced a wrong
+answer first:
+
+- Reverb is *energetically* tiny even when perceptually obvious. An
+  energy-share metric reported the room tails at 0.0% while they were plainly
+  present at −21 to −43 dB. Measure how long a sound stays above a threshold.
+- The distinctness test counted a 3.67× glide *ratio* as a difference without
+  checking either glide was audible — 26 ms vs 7 ms is a big ratio between two
+  pitch jumps. It now requires the longer glide to clear 25 ms, which
+  immediately surfaced a second real collision (`tap`/`toggle.off`).
+
 ## Next
 
 0. **Ry is writing per-sound shape/flavour definitions.** Those land next and
@@ -205,13 +249,16 @@ verified in the browser, not assumed.
    argued out of: direction stays meaningful, and the duration window is a real
    constraint at both ends.
 
-1. **Tune the ten presets by ear.** Confirmed good by Ry: the in-tune
-   landings, pair distinctness, `tap`/`error`, `open`/`toggle.on`, and
-   Xylophone's character. Still open: whether the new **Glassy** actually reads
-   as glass — it is the least-tested preset in the set and the only one built
-   from scratch rather than tuned. Also whether `send` landing a major second
-   below base is too high for "lower register", and whether Crisp reads as a
-   click yet.
+1. **Tune the ten presets by ear, now that the palette is wide.** Every
+   preset's FM and space numbers are a considered starting point and none has
+   been heard yet. Glassy's FM in particular should make it trivially glassy
+   at last — a 3.5 ratio *is* the bell/glass timbre, which is what four rounds
+   of additive tuning could not reach. Also still open: whether `send` landing
+   a major second below base is too high for "lower register", and whether
+   Crisp reads as a click yet.
+
+   The obvious next lever if the range still is not enough: a **filter
+   envelope**, which is the one item from the spec's v2 list not yet built.
 
    Superseded — round one opened up the
    envelope-shape axis (decay:release now spans 1.3 to 6.8 where it spanned
