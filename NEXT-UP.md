@@ -128,6 +128,39 @@ audio rather than reasoning about the model is what found the real cause.
 `src/lib/distinctness.test.ts` is new and is the check that was missing: it
 fails if any two sounds match on pitch, direction, travel and glide at once.
 
+### 2026-08-12 — in tune
+
+Ry: "`receive` sounds too negative, across the board. I think because it's a
+sharp? Or not an even drop in pitch?" That guess was right, and it was the
+same cause behind Retro reading as "a mix of neutrals and sad opposites" and
+Glassy's `delete` sounding like it belonged to a different preset.
+
+**A pair's falling member inherited the rising member's swept start as its
+landing.** That start is `to + (from − to) × sweepScale` — preset-dependent
+and generally fractional — so every falling half landed *between two notes*,
+by a different amount on each preset. Measured: `receive` landed 40 cents
+sharp of a fourth on Soft, on a tritone on Minimal, and 50 cents off — a
+literal quarter-tone — on Retro.
+
+`delete` was the control that proved it. Not a pair member, lands on its
+declared octave everywhere, and it was the one falling sound Ry singled out
+as clean and wanted the rest to match.
+
+Pairs now mirror **at the note**: both halves land on declared integer
+intervals, identical across all nine presets, and each computes its own
+glide. Every landing is consonant — unison, M2, M3, P4, P5 or M6, no minor
+thirds or sixths. That is the difference between a neutral opposite and a sad
+one, and it is the "consistent pattern across presets" that was missing.
+
+**The trade:** the exact frequency palindrome is gone. It was the tighter
+invariant and the wrong one — six tests asserted it and now assert the new
+contract by round-trip instead.
+
+One design trap worth remembering: pitch deltas are only ever stored on the
+canonical member, so the derived member **must** derive from it. Resolving
+the derived member purely from its own notes looked cleaner and silently
+broke editing — an edit to `close` would have done nothing.
+
 ## Next
 
 0. **Ry is writing per-sound shape/flavour definitions.** Those land next and
@@ -139,12 +172,11 @@ fails if any two sounds match on pitch, direction, travel and glide at once.
    argued out of: direction stays meaningful, and the duration window is a real
    constraint at both ends.
 
-1. **Tune the nine presets by ear — round three.** Round two made every sound
-   distinguishable from every other one and rebuilt Glassy away from being a
-   bell. Still open by ear: whether Glassy now reads as glass rather than just
-   as short (it lost real length when the ring went — `tap` 133 → 91 ms, and
-   its note was lengthened to compensate), whether `delete`'s octave drop is
-   too final, and whether Crisp reads as a click yet.
+1. **Tune the nine presets by ear — round four.** Round three put every
+   landing on a consonant interval. Still open by ear: whether Glassy is round
+   enough now (twelfth cut to 0.1, cutoff 3200, attack 6 ms — energy above
+   2 kHz halved), whether `send` landing a major second below base is too high
+   for "lower register", and whether Crisp reads as a click yet.
 
    Superseded — round one opened up the
    envelope-shape axis (decay:release now spans 1.3 to 6.8 where it spanned
