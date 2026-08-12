@@ -12,7 +12,7 @@
 // ==============================================
 import { describe, expect, it } from "vitest"
 import { createBeeps, envelopeSegments, scheduleSound } from "../runtime/beeps.js"
-import { resolve, DEFAULT_CONFIG } from "./resolve.js"
+import { resolve, soundingMs, spaceTailMs, DEFAULT_CONFIG } from "./resolve.js"
 import { PRESETS, PRESET_IDS } from "./presets.js"
 
 // ---------------------------------------------------------------------------
@@ -37,6 +37,7 @@ class FakeParam {
 class FakeNode {
   gain = new FakeParam()
   frequency = new FakeParam()
+  delayTime = new FakeParam()
   Q = new FakeParam()
   type = ""
   buffer: unknown = null
@@ -67,6 +68,7 @@ class FakeContext {
   oscillators: FakeNode[] = []
   sources: FakeNode[] = []
   gains: FakeNode[] = []
+  delays: FakeNode[] = []
   filters: FakeNode[] = []
   resumed = 0
 
@@ -80,6 +82,12 @@ class FakeContext {
     this.sources.push(n)
     return n
   }
+  createDelay() {
+    const n = new FakeNode()
+    this.delays.push(n)
+    return n
+  }
+
   createGain() {
     const n = new FakeNode()
     this.gains.push(n)
@@ -405,6 +413,56 @@ describe("frequency modulation", () => {
           expect(v.fm.decayMs, `${id}/${s.id}`).toBeLessThanOrEqual(v.env.decayMs)
           expect(v.fm.depthHz, `${id}/${s.id}`).toBeGreaterThan(0)
         }
+      }
+    }
+  })
+})
+
+describe("space", () => {
+  const roomy = PRESET_IDS.find((p) => PRESETS[p].space)!
+
+  it("builds a damped feedback loop, not a bare delay", () => {
+    // A plain feedback delay repeats at one colour and reads as an echo. A
+    // room gets darker on every pass, which is the lowpass inside the loop.
+    const s = resolve({ presetId: roomy, deltas: {} }).sounds.find((x) => x.id === "tap")!
+    const ctx = fake()
+    scheduleSound(ctx, ctx.destination as unknown as AudioNode, s, 0)
+    expect(ctx.delays).toHaveLength(1)
+    const delay = ctx.delays[0]
+    // delay -> damping -> feedback -> delay is the loop; delay -> wet is the tap.
+    const damping = delay.connections.find((n) => ctx.filters.includes(n))
+    expect(damping, "delay feeds a filter").toBeDefined()
+    expect(damping!.connections.some((n) => n.connections.includes(delay))).toBe(true)
+  })
+
+  it("never lets the loop run away, whatever a hand-edited value says", () => {
+    // Feedback at or above 1 never decays: the page gets louder for as long as
+    // it is open, and nothing in the URL layer bounds this field.
+    const s = resolve({ presetId: roomy, deltas: {} }).sounds.find((x) => x.id === "tap")!
+    const ctx = fake()
+    scheduleSound(
+      ctx,
+      ctx.destination as unknown as AudioNode,
+      { ...s, space: { ...s.space!, feedback: 4 } },
+      0,
+    )
+    // The feedback gain is the one whose output goes back INTO the delay —
+    // not the wet mix and not the master, which legitimately sit near 1.
+    const delay = ctx.delays[0]
+    const fb = ctx.gains.find((g) => g.connections.includes(delay))
+    expect(fb, "found the feedback gain").toBeDefined()
+    for (const call of fb!.gain.calls) expect(call.value).toBeLessThan(1)
+  })
+
+  it("counts the room's tail against the duration budget", () => {
+    // The tail is audible time. Excluding it would make the tool's own
+    // duration warning understate how long a roomy preset actually runs.
+    for (const id of PRESET_IDS) {
+      for (const s of resolve({ presetId: id, deltas: {} }).sounds) {
+        const dry = Math.max(
+          ...s.voices.map((v) => v.startOffsetMs + envelopeSegments(v.env, s.durationMs).totalMs),
+        )
+        expect(soundingMs(s) - dry, `${id}/${s.id}`).toBeCloseTo(spaceTailMs(s.space), 6)
       }
     }
   })

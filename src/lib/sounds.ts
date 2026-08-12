@@ -147,6 +147,32 @@ export type Filter = {
   q: number
 }
 
+/**
+ * A room around the sound: a short delay fed back on itself, damped a little
+ * more on each pass.
+ *
+ * Dry against wet is a bigger perceived difference than most timbral changes,
+ * and it is the one axis the tool had none of — every preset was recorded, so
+ * to speak, in an anechoic chamber. A `delayMs` in the tens of milliseconds
+ * reads as a room rather than as an echo; past about 80 ms it starts to read
+ * as a repeat, which is a different and much more intrusive thing in an
+ * interface.
+ *
+ * The tail this adds is real audible time and counts against DURATION_BUDGET.
+ * That is a genuine constraint rather than bookkeeping: a subtle tap trailing
+ * 200 ms of room has overstayed exactly as surely as a long one would have,
+ * and pretending otherwise would make the tool's own duration warning lie.
+ */
+export type SpaceSpec = {
+  delayMs: number
+  /** How much comes back round, 0 to below 1. Above ~0.5 it stops decaying. */
+  feedback: number
+  /** Wet level against the dry signal. */
+  mix: number
+  /** Lowpass inside the feedback loop, so repeats darken the way a room does. */
+  dampingHz: number
+}
+
 /** One finished sound. Every number concrete; nothing left to derive. */
 export type Sound = {
   id: SoundId
@@ -156,6 +182,8 @@ export type Sound = {
   durationMs: number
   glide: Glide
   tier: Tier
+  /** The room, when the preset carries one. See SpaceSpec. */
+  space?: SpaceSpec
   /**
    * Set by loudness.ts at resolve time, never authored.
    *

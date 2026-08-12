@@ -513,6 +513,7 @@ export function resolve(config: SetConfig): SoundSet {
       durationMs,
       glide: preset.glide,
       tier: spec.tier,
+      ...(preset.space ? { space: preset.space } : {}),
       // Unnormalized until applyNormalization runs. Never authored.
       normalizedGain: 1,
     }
@@ -563,11 +564,29 @@ export function applyNormalization(
  * here, so the warning always measures exactly what the synthesis does.
  */
 export function soundingMs(sound: Sound): number {
-  return Math.max(
+  const dry = Math.max(
     ...sound.voices.map(
       (v) => v.startOffsetMs + envelopeSegments(v.env, sound.durationMs).totalMs,
     ),
   )
+  return dry + spaceTailMs(sound.space)
+}
+
+/**
+ * How long a room keeps sounding after the note has stopped.
+ *
+ * Each pass round the feedback loop is `feedback` times the last, so the level
+ * after n passes is `feedback^n` — audible down to about -40 dB, which is where
+ * this stops counting. Zero feedback still leaves one delayed copy.
+ *
+ * This is added to `soundingMs` rather than tracked separately, so the duration
+ * budget sees it. A tap trailing 200 ms of room has overstayed just as surely
+ * as a 200 ms tap would have.
+ */
+export function spaceTailMs(space: Sound["space"]): number {
+  if (!space) return 0
+  const passes = space.feedback <= 0 ? 1 : Math.log(0.01) / Math.log(space.feedback)
+  return space.delayMs * Math.max(1, passes)
 }
 
 /**

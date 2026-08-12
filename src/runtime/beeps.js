@@ -136,6 +136,36 @@ export function scheduleSound(ctx, destination, sound, when, onVoice) {
   filter.connect(master)
   master.connect(destination)
 
+  // The room, when the preset carries one: a short delay feeding back on
+  // itself through a lowpass, so each pass is quieter AND darker — which is
+  // what a real room does and what a plain feedback delay does not.
+  //
+  // It hangs off the filter in parallel with the dry path rather than in
+  // series, so the wet level is a mix rather than a replacement.
+  if (sound.space) {
+    const delay = ctx.createDelay(1)
+    delay.delayTime.setValueAtTime(Math.min(0.999, sound.space.delayMs / 1000), t0)
+
+    const damping = ctx.createBiquadFilter()
+    damping.type = "lowpass"
+    damping.frequency.setValueAtTime(clampHz(sound.space.dampingHz), t0)
+
+    const feedback = ctx.createGain()
+    // Held below 1 whatever a hand-edited value says. At 1 the loop never
+    // decays and the page gets louder for as long as it is open.
+    feedback.gain.setValueAtTime(Math.max(0, Math.min(0.85, sound.space.feedback)), t0)
+
+    const wet = ctx.createGain()
+    wet.gain.setValueAtTime(Math.max(0, sound.space.mix), t0)
+
+    filter.connect(delay)
+    delay.connect(damping)
+    damping.connect(feedback)
+    feedback.connect(delay)
+    delay.connect(wet)
+    wet.connect(master)
+  }
+
   let endsAt = t0
 
   for (const voice of sound.voices) {

@@ -28,7 +28,7 @@
 // Presets are the highest-taste, lowest-code part of
 // this product and they get finished by ear.
 // ==============================================
-import type { Tier, Waveform } from "./sounds.js"
+import type { SpaceSpec, Tier, Waveform } from "./sounds.js"
 
 export type PresetId =
   | "soft"
@@ -122,6 +122,14 @@ export type PresetDef = {
   filterQ: number
   /** Null on presets with no noise layer. */
   noise: { amount: number; decayMs: number } | null
+  /**
+   * The room. Null on presets that are meant to be dry.
+   *
+   * See `SpaceSpec` in sounds.ts. Its tail counts against DURATION_BUDGET, so
+   * a preset can only carry as much room as its envelope leaves headroom for —
+   * which is why the longest presets here are the driest.
+   */
+  space?: SpaceSpec | null
   /** Peak amplitude per tier, before loudness normalization. */
   gain: Record<Tier, number>
   /**
@@ -466,6 +474,9 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     filterCutoffHz: 3200,
     filterQ: 0.7,
     noise: null,
+    // A small bright room. Struck bars are almost always heard in one, and
+    // dry they sound like a sample rather than an object.
+    space: { delayMs: 18, feedback: 0.26, mix: 0.3, dampingHz: 5000 },
     gain: { subtle: 0.16, notable: 0.26, alert: 0.34 },
     envScale: { subtle: 0.42, notable: 1.0, alert: 1.35 },
   },
@@ -500,6 +511,8 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     filterCutoffHz: 3200,
     filterQ: 1.5,
     noise: null,
+    // A slap, not a wash — it should bounce.
+    space: { delayMs: 20, feedback: 0.26, mix: 0.32, dampingHz: 4000 },
     gain: { subtle: 0.22, notable: 0.34, alert: 0.44 },
     envScale: { subtle: 0.45, notable: 1.0, alert: 1.6 },
   },
@@ -530,6 +543,9 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     filterCutoffHz: 6000,
     filterQ: 0.5,
     noise: { amount: 0.15, decayMs: 12 },
+    // Tight and bright, the way a chip delay line was: too short to hear as
+    // a repeat, long enough to hear as a machine.
+    space: { delayMs: 14, feedback: 0.25, mix: 0.26, dampingHz: 6000 },
     gain: { subtle: 0.2, notable: 0.3, alert: 0.4 },
     envScale: { subtle: 0.66, notable: 1.0, alert: 1.7 },
   },
@@ -568,6 +584,10 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     // resonant sweep is what reads as "energy weapon" rather than "buzz".
     filterQ: 8.0,
     noise: { amount: 0.2, decayMs: 10 },
+    // The biggest room in the set, and the one place a repeat is welcome.
+    // Sized by the SUBTLE tier, which is what binds: `open` is barely 100 ms
+    // dry, so the room it trails cannot be much longer than that again.
+    space: { delayMs: 20, feedback: 0.28, mix: 0.34, dampingHz: 2600 },
     gain: { subtle: 0.2, notable: 0.32, alert: 0.42 },
     envScale: { subtle: 0.45, notable: 1.0, alert: 1.7 },
   },
