@@ -27,6 +27,7 @@ import type { SoundId } from "./lib/sounds"
 import {
   DEFAULT_CONFIG,
   applyEdit,
+  applyPreset,
   resolve,
   type SetConfig,
   type SoundDelta,
@@ -69,7 +70,13 @@ export default function App() {
   const preset = PRESETS[config.presetId]
   // A set with any edit is no longer the preset — it is Custom, and switching
   // back would throw those edits away. PresetSelect asks before it does.
-  const editCount = Object.keys(config.deltas).length
+  // A sound given its own voice is as much an edit as a moved slider, and
+  // switching presets throws both away — so both have to reach the
+  // confirmation, or picking a new preset would silently discard the mixing.
+  const editCount = new Set([
+    ...Object.keys(config.deltas),
+    ...Object.keys(config.presets ?? {}),
+  ]).size
 
   const setPreset = useCallback((presetId: PresetId) => {
     // A preset applies to the whole set. Deltas are cleared, because they were
@@ -82,6 +89,12 @@ export default function App() {
   // caller has to remember. It is the only write path into `deltas`.
   const editSound = useCallback((id: SoundId, patch: SoundDelta) => {
     setConfig((current) => applyEdit(current, id, patch))
+  }, [])
+
+  // One sound's instrument, independent of the rest. Pitch stays global, so a
+  // mixed set is still one key — see SetConfig.presets.
+  const setSoundPreset = useCallback((id: SoundId, presetId: PresetId) => {
+    setConfig((current) => applyPreset(current, id, presetId))
   }, [])
 
   const shareUrl =
@@ -162,7 +175,13 @@ export default function App() {
         to find as a result — the page opened on six demo surfaces, with the
         thing you actually change buried below them. Output before playground.
       */}
-      <SoundList set={audio.set} config={config} onEdit={editSound} onPlay={audio.play} />
+      <SoundList
+        set={audio.set}
+        config={config}
+        onEdit={editSound}
+        onPreset={setSoundPreset}
+        onPlay={audio.play}
+      />
 
       <Preview
         play={audio.play}

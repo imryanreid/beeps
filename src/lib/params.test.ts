@@ -16,10 +16,11 @@ import {
   keyToId,
   resolveConfig,
 } from "./params.js"
-import { DEFAULT_CONFIG, applyEdit, resolve, type SetConfig } from "./resolve.js"
+import { DEFAULT_CONFIG, applyEdit, applyPreset, resolve, type SetConfig } from "./resolve.js"
 import { DEFAULT_WAV, encodeWav, toDataUri, wavByteLength } from "./wav.js"
 import { aWeightDb, normalizationGains, peak, perceivedLevelDb, rms } from "./loudness.js"
 import { SOUND_IDS, SOUND_SPECS, pairDropSemitones } from "./sounds.js"
+import { DEFAULT_PRESET } from "./presets.js"
 
 // ---------------------------------------------------------------------------
 
@@ -309,5 +310,42 @@ describe("loudness", () => {
 
   it("reports silence as -Infinity rather than NaN", () => {
     expect(perceivedLevelDb(new Float32Array(100), 700)).toBe(-Infinity)
+  })
+})
+
+describe("per-sound presets in the URL", () => {
+  it("round-trips a per-sound preset alongside that sound's edits", () => {
+    // The separator bug this test exists for: encodeDelta joins on ".", so a
+    // preset joined on "," made `vcrisp,f720` one unparseable part and every
+    // edit on that sound vanished in transit.
+    let config = applyPreset(DEFAULT_CONFIG, "tap", "crisp")
+    config = applyEdit(config, "tap", { attackMs: 12 })
+    const back = resolveConfig(encodeConfig(config))
+    expect(back.presets?.tap).toBe("crisp")
+    expect(back.deltas.tap?.attackMs).toBeCloseTo(12, 4)
+  })
+
+  it("keeps an inversion pair on one preset", () => {
+    // close derives its pitches from open through that preset's sweepScale, so
+    // two different scales would leave the pair mirroring nothing.
+    const config = applyPreset(DEFAULT_CONFIG, "close", "retro")
+    expect(config.presets?.close).toBe("retro")
+    expect(config.presets?.open).toBe("retro")
+    const back = resolveConfig(encodeConfig(config))
+    expect(back.presets?.open).toBe("retro")
+    expect(back.presets?.close).toBe("retro")
+  })
+
+  it("stores nothing when the choice matches the set", () => {
+    const config = applyPreset(applyPreset(DEFAULT_CONFIG, "tap", "crisp"), "tap", DEFAULT_PRESET)
+    expect(config.presets).toBeUndefined()
+    expect(encodeConfig(config)).toBe("")
+  })
+
+  it("ignores a preset name that does not exist", () => {
+    const back = resolveConfig("?tap=vnotapreset.f900")
+    expect(back.presets?.tap).toBeUndefined()
+    // ...and the edit beside it still survives.
+    expect(back.deltas.tap?.startHz).toBeCloseTo(900, 4)
   })
 })

@@ -75,6 +75,20 @@ export type SetConfig = {
   /** Overrides the preset's own base. Absent means "use the preset's". */
   baseHz?: number
   deltas: Partial<Record<SoundId, SoundDelta>>
+  /**
+   * Per-sound preset overrides. Absent means the set's preset.
+   *
+   * Only TIMBRE varies per sound — layers, envelope, filter, noise, space and
+   * sweep behaviour. `baseHz` stays whatever the SET's preset says, so a mixed
+   * set is still one key with different instruments in it rather than a pile of
+   * unrelated sounds. That split is what makes mixing coherent, and it is why
+   * an overriding preset's own base is deliberately ignored.
+   *
+   * Inversion pairs must agree: `close` derives its pitches from `open` using
+   * that preset's sweepScale, so two different scales would leave the pair
+   * mirroring nothing. `applyPreset` keeps both halves in step.
+   */
+  presets?: Partial<Record<SoundId, PresetId>>
 }
 
 export const DEFAULT_CONFIG: SetConfig = { presetId: DEFAULT_PRESET, deltas: {} }
@@ -490,11 +504,23 @@ function buildFilter(
 }
 
 /** Preset + deltas → the finished set. `normalizedGain` is filled in later. */
+/**
+ * The preset a given sound is built from — its own, or the set's.
+ *
+ * The set's preset still owns `baseHz` for everyone. See SetConfig.presets.
+ */
+export function presetFor(id: SoundId, config: SetConfig): PresetDef {
+  const own = config.presets?.[id]
+  if (own && PRESETS[own]) return PRESETS[own]
+  return PRESETS[config.presetId] ?? PRESETS[DEFAULT_PRESET]
+}
+
 export function resolve(config: SetConfig): SoundSet {
-  const preset = PRESETS[config.presetId] ?? PRESETS[DEFAULT_PRESET]
-  const baseHz = clamp(config.baseHz ?? preset.baseHz, ...LIMITS.baseHz)
+  const setPreset = PRESETS[config.presetId] ?? PRESETS[DEFAULT_PRESET]
+  const baseHz = clamp(config.baseHz ?? setPreset.baseHz, ...LIMITS.baseHz)
 
   const built: Sound[] = SOUND_SPECS.map((spec) => {
+    const preset = presetFor(spec.id, config)
     const delta = config.deltas[spec.id] ?? {}
     // The envelope decides the length, not the other way round. See envelopeMs.
     const env = envelopeFor(preset, spec.tier, delta, spec.lengthScale ?? 1)
@@ -532,7 +558,13 @@ export function resolve(config: SetConfig): SoundSet {
     if (canonical && derived && spec) {
       byId.set(
         pair.b,
-        deriveFromCanonical(derived, canonical, spec.travel, pair.dropSemitones ?? 0, preset),
+        deriveFromCanonical(
+          derived,
+          canonical,
+          spec.travel,
+          pair.dropSemitones ?? 0,
+          presetFor(pair.a, config),
+        ),
       )
     }
   }
@@ -714,10 +746,36 @@ export function pairedEdits(
 
 /** Merge a patch into a config, applying pair mirroring. */
 export function applyEdit(config: SetConfig, id: SoundId, patch: SoundDelta): SetConfig {
-  const preset = PRESETS[config.presetId] ?? PRESETS[DEFAULT_PRESET]
+  // The pitch mirror is computed from the CANONICAL member's preset, since
+  // that is the one whose sweepScale the derivation actually uses.
+  const preset = presetFor(isDerivedPitch(id) ? pitchCanonical(id) : id, config)
   const deltas = { ...config.deltas }
   for (const edit of pairedEdits(id, patch, preset)) {
     deltas[edit.id] = { ...deltas[edit.id], ...edit.patch }
   }
   return { ...config, deltas }
+}
+
+/**
+ * Give one sound its own preset — and its pair partner the same one.
+ *
+ * Pairs are locked deliberately rather than as a simplification. `close` takes
+ * its pitches from `open` through that preset's `sweepScale`; give the two
+ * halves different scales and the derivation is computing a mirror of
+ * something that is not there. A pair that does not share a voice is not a
+ * pair, so choosing for either member chooses for both.
+ *
+ * Passing the set's own preset clears the override rather than storing it, so
+ * a config never carries a per-sound value that changes nothing — the same
+ * rule the deltas follow, and what keeps the URL honest about what is edited.
+ */
+export function applyPreset(config: SetConfig, id: SoundId, presetId: PresetId): SetConfig {
+  const partner = partnerOf(id)
+  const ids: SoundId[] = partner?.kind === "inversion" ? [id, partner.id] : [id]
+  const presets = { ...(config.presets ?? {}) }
+  for (const each of ids) {
+    if (presetId === config.presetId) delete presets[each]
+    else presets[each] = presetId
+  }
+  return { ...config, presets: Object.keys(presets).length ? presets : undefined }
 }

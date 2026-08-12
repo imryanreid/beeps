@@ -126,9 +126,18 @@ export function encodeConfig(config: SetConfig): string {
 
   for (const id of SOUND_IDS) {
     const delta = config.deltas[id]
-    if (!delta) continue
-    const encoded = encodeDelta(delta)
-    if (encoded) p.set(idToKey(id), encoded)
+    const own = config.presets?.[id]
+    const encoded = delta ? encodeDelta(delta) : undefined
+    // A per-sound preset rides in the same param as that sound's edits, as a
+    // leading `v` for voice: `tap=vcrisp.f720`. The separator is a dot because
+    // that is what encodeDelta already uses — a comma here silently swallowed
+    // every edit on any sound that also carried a preset, since decodeDelta
+    // splits on dots and `vcrisp,f720` is one unparseable part rather than two.
+    //
+    // It cannot collide with a field code: every code is followed by digits and
+    // every preset id is pure letters, so `vcrisp` matches no field.
+    const parts = [own && own !== config.presetId ? `v${own}` : "", encoded ?? ""].filter(Boolean)
+    if (parts.length) p.set(idToKey(id), parts.join("."))
   }
 
   // URLSearchParams percent-encodes "." in values on some runtimes and not
@@ -151,14 +160,18 @@ export function decodeConfig(search: string): Partial<SetConfig> {
   }
 
   const deltas: Partial<Record<SoundId, SoundDelta>> = {}
+  const presets: Partial<Record<SoundId, PresetId>> = {}
   for (const [key, value] of p.entries()) {
     if (key === "p" || key === "b") continue
     const id = keyToId(key)
     if (!id) continue
+    const voice = /(?:^|\.)v([a-z]+)/.exec(value)
+    if (voice && isPresetId(voice[1])) presets[id] = voice[1]
     const delta = decodeDelta(value)
     if (delta) deltas[id] = delta
   }
   if (Object.keys(deltas).length) out.deltas = deltas
+  if (Object.keys(presets).length) out.presets = presets
 
   return out
 }
@@ -170,6 +183,7 @@ export function resolveConfig(search: string): SetConfig {
     presetId: (decoded.presetId ?? DEFAULT_CONFIG.presetId) as PresetId,
     ...(decoded.baseHz !== undefined ? { baseHz: decoded.baseHz } : {}),
     deltas: decoded.deltas ?? {},
+    ...(decoded.presets ? { presets: decoded.presets } : {}),
   }
 }
 

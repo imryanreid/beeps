@@ -35,17 +35,20 @@ import {
   type SoundSet,
   type Tier,
 } from "../lib/sounds"
+import { PRESETS, PRESET_IDS, type PresetId } from "../lib/presets"
 import SoundPlot from "./SoundPlot"
 
 export default function SoundList({
   set,
   config,
   onEdit,
+  onPreset,
   onPlay,
 }: {
   set: SoundSet
   config: SetConfig
   onEdit: (id: SoundId, patch: SoundDelta) => void
+  onPreset: (id: SoundId, presetId: PresetId) => void
   onPlay: (id: SoundId) => void
 }) {
   const [openId, setOpenId] = useState<SoundId | null>(null)
@@ -80,6 +83,9 @@ export default function SoundList({
             onToggle={() => setOpenId(openId === sound.id ? null : sound.id)}
             onPlay={() => onPlay(sound.id)}
             onEdit={(patch) => onEdit(sound.id, patch)}
+            onPreset={(presetId) => onPreset(sound.id, presetId)}
+            presetId={config.presets?.[sound.id] ?? config.presetId}
+            setPresetId={config.presetId}
           />
         ))}
       </ul>
@@ -199,6 +205,9 @@ function SoundRow({
   onToggle,
   onPlay,
   onEdit,
+  onPreset,
+  presetId,
+  setPresetId,
 }: {
   sound: Sound
   baseHz: number
@@ -209,6 +218,9 @@ function SoundRow({
   onToggle: () => void
   onPlay: () => void
   onEdit: (patch: SoundDelta) => void
+  onPreset: (presetId: PresetId) => void
+  presetId: PresetId
+  setPresetId: PresetId
 }) {
   const spec = specFor(sound.id)
   const total = soundingMs(sound)
@@ -290,6 +302,9 @@ function SoundRow({
           showLabels={showLabels}
           onToggleLabels={onToggleLabels}
           onEdit={onEdit}
+          onPreset={onPreset}
+          presetId={presetId}
+          setPresetId={setPresetId}
         />
       )}
     </li>
@@ -307,6 +322,9 @@ function Editor({
   showLabels,
   onToggleLabels,
   onEdit,
+  onPreset,
+  presetId,
+  setPresetId,
 }: {
   sound: Sound
   spec: ReturnType<typeof specFor>
@@ -314,6 +332,9 @@ function Editor({
   showLabels: boolean
   onToggleLabels: () => void
   onEdit: (patch: SoundDelta) => void
+  onPreset: (presetId: PresetId) => void
+  presetId: PresetId
+  setPresetId: PresetId
 }) {
   const osc = sound.voices.find((v) => v.kind === "osc")
   if (!osc || osc.kind !== "osc") return null
@@ -334,14 +355,40 @@ function Editor({
           wall of prose you had to read past to reach the sliders — useful once,
           noise every time after.
         */}
-        <button
-          type="button"
-          onClick={onToggleLabels}
-          aria-pressed={showLabels}
-          className="border-line hover:border-ink/30 text-ash hover:text-ink shrink-0 rounded border px-2 py-1 font-mono text-[10px] tracking-[0.14em] uppercase transition-colors"
-        >
-          labels {showLabels ? "on" : "off"}
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          {/*
+            Which instrument THIS sound is played on. Pitch stays global — the
+            set's own preset owns baseHz — so mixing voices gives one key with
+            different instruments in it rather than eleven unrelated sounds.
+            Picking for either half of a pair picks for both; see applyPreset.
+          */}
+          <label className="flex items-center gap-1.5">
+            <span className="sr-only">Voice for {sound.id}</span>
+            <select
+              value={presetId}
+              onChange={(e) => onPreset(e.target.value as PresetId)}
+              className={cn(
+                "border-line hover:border-ink/30 rounded border bg-transparent px-2 py-1 font-mono text-[10px] tracking-[0.14em] uppercase transition-colors",
+                presetId === setPresetId ? "text-ash hover:text-ink" : "text-ink border-ink/30",
+              )}
+            >
+              {PRESET_IDS.map((id) => (
+                <option key={id} value={id}>
+                  {PRESETS[id].name.toLowerCase()}
+                  {id === setPresetId ? " (set)" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            onClick={onToggleLabels}
+            aria-pressed={showLabels}
+            className="border-line hover:border-ink/30 text-ash hover:text-ink shrink-0 rounded border px-2 py-1 font-mono text-[10px] tracking-[0.14em] uppercase transition-colors"
+          >
+            labels {showLabels ? "on" : "off"}
+          </button>
+        </div>
       </div>
 
       <div className="grid gap-x-8 gap-y-6 lg:grid-cols-[minmax(0,1fr)_320px]">
