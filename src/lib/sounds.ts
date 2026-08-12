@@ -419,7 +419,11 @@ export const SOUND_SPECS: SoundSpec[] = [
     register: "higher",
     shape: "scoopUp",
     tier: "subtle",
-    center: 5,
+    // Lands on the octave, where `open` used to land too — both arrived at +9
+    // and differed only in where they set off, which on a preset with a short
+    // glide is no difference at all. Consonance was checked when these were
+    // tuned; collision was not.
+    center: 8,
     // The tightest move in the set, and the shortest sound. A switch is the
     // one thing here with no travel of its own — it just changes state.
     travel: 4,
@@ -433,7 +437,7 @@ export const SOUND_SPECS: SoundSpec[] = [
     register: "higher",
     shape: "scoopDown",
     tier: "subtle",
-    center: 5,
+    center: 8,
     travel: 4,
     lengthScale: 0.94,
     when: "The same control turning off.",
@@ -559,7 +563,7 @@ export const PAIRS: Pair[] = [
   // puts it lower at both ends, which is what "off is lower" has to mean.
   { a: "open", b: "close", kind: "inversion", dropSemitones: 7 },
   { a: "send", b: "receive", kind: "inversion", dropSemitones: 0 },
-  { a: "toggle.on", b: "toggle.off", kind: "inversion", dropSemitones: 5 },
+  { a: "toggle.on", b: "toggle.off", kind: "inversion", dropSemitones: 4 },
   { a: "success", b: "error", kind: "contrast" },
 ]
 

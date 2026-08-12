@@ -133,6 +133,17 @@ describe("no two sounds are the same sound", () => {
   const PITCH_SEMITONES = 3
   const TRAVEL_SEMITONES = 3
   const GLIDE_RATIO = 2
+  /**
+   * A glide only counts as a difference if it is long enough to be heard AS a
+   * glide. Below this it is a pitch jump, and one jump sounds like another.
+   *
+   * Without this floor the ratio was comparing negligible numbers: on Glassy,
+   * `open` and `toggle.on` glide for 26 ms and 7 ms, which is 3.67x and passed
+   * — while both are far too short to perceive, so the only real cue left was
+   * a 1-semitone difference in where they started. They landed on the same
+   * note and sounded like one sound.
+   */
+  const GLIDE_AUDIBLE_MS = 25
 
   for (const presetId of PRESET_IDS) {
     it(presetId, () => {
@@ -156,6 +167,7 @@ describe("no two sounds are the same sound", () => {
           const direction = Math.sign(a.travel) !== Math.sign(b.travel)
           const travel = Math.abs(a.travel - b.travel) >= TRAVEL_SEMITONES
           const glide =
+            Math.max(a.glide, b.glide) >= GLIDE_AUDIBLE_MS &&
             Math.max(a.glide, b.glide) / Math.max(1, Math.min(a.glide, b.glide)) >= GLIDE_RATIO
           if (!pitch && !direction && !travel && !glide)
             clashes.push(
