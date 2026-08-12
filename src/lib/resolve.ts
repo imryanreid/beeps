@@ -37,6 +37,7 @@ import {
   notesFor,
   opensFilter,
   closesFilter,
+  glideShareFor,
 } from "./sounds.js"
 import {
   DEFAULT_PRESET,
@@ -106,6 +107,28 @@ export const clamp = (v: number, min: number, max: number) => Math.min(max, Math
  */
 export const MIN_MUSICAL_HZ = 330
 
+/**
+ * The widest pitch move any one note may make, however the numbers multiply
+ * out — an octave and a minor sixth, past which a pitch move stops reading as
+ * an interface sound and starts reading as a sound effect.
+ *
+ * A sound's travel and its preset's `sweepScale` compound, and neither knows
+ * about the other: widening `open` from five semitones to eight — so it would
+ * stop being `toggle.on` transposed — turned Sci-Fi's 3x into a two-octave
+ * dive, which pushed `close`'s landing under MIN_MUSICAL_HZ. The floor caught
+ * it, as it should, but a clamped landing is no longer the mirror of anything,
+ * so the pair silently stopped inverting on that one preset.
+ *
+ * **This is a backstop, not a shaper, and it has to stay one.** Clipping is
+ * order-destroying: at 18 it pinned both `close` (24 semitones of intent) and
+ * `delete` (30) to exactly 18, which made two deliberately different sounds
+ * identical on Sci-Fi — the same bug it was added to fix, one layer down. The
+ * fix was to bring Sci-Fi's scale down to where nothing reaches this at all.
+ * If a preset ever starts hitting it, that preset's `sweepScale` is wrong;
+ * raising this number instead just moves where the flattening happens.
+ */
+export const MAX_GLIDE_SEMITONES = 20
+
 /** Equal temperament. The whole set is intervals from one base. */
 export const semitonesToHz = (baseHz: number, semitones: number): number =>
   baseHz * Math.pow(2, semitones / 12)
@@ -145,7 +168,8 @@ export function sweepStartSemitones(v: NoteSpec, preset: PresetDef): number {
   // opposite of what the positive sound in the set should do.
   if (v.steady) return v.to
   if (v.from === v.to) return v.to + preset.intrinsicSweep
-  return v.to + (v.from - v.to) * preset.sweepScale
+  const scaled = (v.from - v.to) * preset.sweepScale
+  return v.to + clamp(scaled, -MAX_GLIDE_SEMITONES, MAX_GLIDE_SEMITONES)
 }
 
 /**
@@ -203,8 +227,16 @@ const FILTER_SWEEP = {
  * it is what makes a sound a click rather than a beep — and stretching it for
  * an alert would just make the alert mushy.
  */
-export function envelopeFor(preset: PresetDef, tier: Tier, delta: SoundDelta = {}): Envelope {
-  const scale = preset.envScale[tier]
+export function envelopeFor(
+  preset: PresetDef,
+  tier: Tier,
+  delta: SoundDelta = {},
+  lengthScale = 1,
+): Envelope {
+  // Attack is character, not length — it is the only segment `envScale` leaves
+  // alone, and `lengthScale` leaves it alone for the same reason. Stretching
+  // the onset of a longer sound makes it soft, not long.
+  const scale = preset.envScale[tier] * lengthScale
   return {
     attackMs: clamp(delta.attackMs ?? preset.attackMs, ...LIMITS.attackMs),
     decayMs: clamp(delta.decayMs ?? preset.decayMs * scale, ...LIMITS.decayMs),
@@ -247,7 +279,8 @@ function buildVoices(
   const ratio = (startHz + endHz) / (derivedStart + derivedEnd)
 
   const sweepMs = clamp(
-    delta.sweepMs ?? (env.decayMs + env.releaseMs) * preset.sweepShare,
+    delta.sweepMs ??
+      (env.decayMs + env.releaseMs) * preset.sweepShare * glideShareFor(spec.shape),
     ...LIMITS.sweepMs,
   )
 
@@ -412,7 +445,7 @@ export function resolve(config: SetConfig): SoundSet {
   const built: Sound[] = SOUND_SPECS.map((spec) => {
     const delta = config.deltas[spec.id] ?? {}
     // The envelope decides the length, not the other way round. See envelopeMs.
-    const env = envelopeFor(preset, spec.tier, delta)
+    const env = envelopeFor(preset, spec.tier, delta, spec.lengthScale ?? 1)
     const durationMs = envelopeMs(env)
 
     const trim = delta.gainTrimDb === undefined ? 1 : dbToLinear(delta.gainTrimDb)

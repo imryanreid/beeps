@@ -263,6 +263,35 @@ export function notesFor(shape: Shape, center: number, travel: number): NoteSpec
   }
 }
 
+/**
+ * How much of the sound the pitch move occupies, as a multiplier on the
+ * preset's `sweepShare`.
+ *
+ * This exists because `expand` and `scoopUp` produced *literally the same
+ * notes* — same branch of `notesFor`, same travel — so `open` and `toggle.on`
+ * were one sound transposed three semitones, in every preset. Four names, two
+ * behaviours. Separating them by centre alone was never going to work; they
+ * had to move differently.
+ *
+ * A **scoop** is a gesture: the pitch arrives early and the rest of the sound
+ * holds it, the way a thrown thing is fastest as it leaves your hand. An
+ * **expand** is a size change: the whole sound is still moving when it ends.
+ * Same interval, opposite feel, and about a 3x spread in glide time — which is
+ * audible where three semitones of transposition is not.
+ */
+export function glideShareFor(shape: Shape): number {
+  switch (shape) {
+    case "scoopUp":
+    case "scoopDown":
+      return 0.5
+    case "expand":
+    case "collapse":
+      return 1.5
+    default:
+      return 1
+  }
+}
+
 /** Shapes that sweep the filter as well as the pitch. */
 export const opensFilter = (shape: Shape): boolean => shape === "expand"
 export const closesFilter = (shape: Shape): boolean => shape === "collapse"
@@ -279,6 +308,15 @@ export type SoundSpec = {
   travel: number
   /** Force a noise transient even on presets that carry none. */
   forceNoise?: boolean
+  /**
+   * Per-sound length, as a multiplier on the tier's envelope. Default 1.
+   *
+   * The tier sets how much attention a sound asks for, and that is genuinely
+   * shared — but two sounds can want the same attention at different lengths.
+   * A toggle is a flick; opening a drawer is a surface arriving. Both are
+   * `subtle`, and before this they were the same length to the millisecond.
+   */
+  lengthScale?: number
   /** Ships verbatim in the agent markdown. */
   when: string
   whenNot: string
@@ -324,7 +362,11 @@ export const SOUND_SPECS: SoundSpec[] = [
     shape: "expand",
     tier: "subtle",
     center: 2,
-    travel: 5,
+    // Further than a toggle travels, and gliding for three times as long. A
+    // drawer coming out is a bigger move than a switch flipping, and the two
+    // were previously identical in both.
+    travel: 8,
+    lengthScale: 1.15,
     when: "A surface the user opened: menu, sheet, drawer, disclosure.",
     whenNot: "Anything that opens by itself, including tooltips on hover.",
   },
@@ -335,7 +377,8 @@ export const SOUND_SPECS: SoundSpec[] = [
     shape: "collapse",
     tier: "subtle",
     center: 2,
-    travel: 5,
+    travel: 8,
+    lengthScale: 1.15,
     when: "The same surface dismissed.",
     whenNot: "Route changes and page navigation — those are not closes.",
   },
@@ -345,8 +388,16 @@ export const SOUND_SPECS: SoundSpec[] = [
     register: "lower",
     shape: "scoopUp",
     tier: "notable",
-    center: -5,
+    // A declared centre is not where the sound sits. `receive` is the inverted
+    // half of this pair, so it spans the same notes upside down and its middle
+    // lands a fourth ABOVE this number — which is how it ended up overlapping
+    // `close`. Dropping the pair is what actually makes "lower" true of both.
+    center: -8,
     travel: 7,
+    // The two longest sounds that are not alerts. A message leaving is the most
+    // consequential thing in the set that is not an interruption, and at tier
+    // length it went by too fast to register as a gesture at all.
+    lengthScale: 1.3,
     when: "Outbound, user-initiated: a message sent, a form submitted, a job queued.",
     whenNot: "Autosave, background sync, telemetry, retries.",
   },
@@ -356,8 +407,9 @@ export const SOUND_SPECS: SoundSpec[] = [
     register: "lower",
     shape: "scoopDown",
     tier: "notable",
-    center: -5,
+    center: -8,
     travel: 7,
+    lengthScale: 1.3,
     when: "Inbound content arriving while the user is present and looking.",
     whenNot: "Bulk arrivals — play once for a batch, never once per item.",
   },
@@ -368,7 +420,10 @@ export const SOUND_SPECS: SoundSpec[] = [
     shape: "scoopUp",
     tier: "subtle",
     center: 5,
-    travel: 5,
+    // The tightest move in the set, and the shortest sound. A switch is the
+    // one thing here with no travel of its own — it just changes state.
+    travel: 4,
+    lengthScale: 0.94,
     when: "A binary control turning on, when the user turned it on.",
     whenNot: "Programmatic state changes, or restoring saved settings on load.",
   },
@@ -379,7 +434,8 @@ export const SOUND_SPECS: SoundSpec[] = [
     shape: "scoopDown",
     tier: "subtle",
     center: 5,
-    travel: 5,
+    travel: 4,
+    lengthScale: 0.94,
     when: "The same control turning off.",
     whenNot: "Programmatic state changes, or restoring saved settings on load.",
   },
@@ -389,7 +445,11 @@ export const SOUND_SPECS: SoundSpec[] = [
     register: "mid",
     shape: "ascend",
     tier: "notable",
-    center: 4,
+    // Below `open`, which it used to climb through. Both rise a similar
+    // distance from a similar place, and the only thing keeping them apart was
+    // that one steps and the other glides — which holds on Soft and stops
+    // holding on any preset that compresses its glide toward a jump.
+    center: 0,
     travel: 5,
     when: "A user-initiated operation completed. Only on completion the user was waiting for.",
     whenNot:
@@ -401,7 +461,14 @@ export const SOUND_SPECS: SoundSpec[] = [
     register: "mid",
     shape: "flat",
     tier: "alert",
-    center: 0,
+    // Off `tap`'s note, which it used to sit exactly on. Both are flat, so
+    // pitch was the only thing left to tell them apart and there was none of
+    // it — on a pure sine the dissonant voice beat audibly against the clean
+    // tap and covered for it, but on Retro's squares and Glassy's partials
+    // the added harshness landed in harmonics that were already there and the
+    // two collapsed into one sound at two lengths. A minor third down is
+    // still mid-register and unmistakably not `tap`.
+    center: -4,
     travel: 0,
     when: "An operation failed in a way the user must respond to.",
     whenNot:
@@ -419,8 +486,13 @@ export const SOUND_SPECS: SoundSpec[] = [
     // between putting something down and announcing two facts about it.
     shape: "scoopDown",
     tier: "notable",
-    center: -7,
-    travel: 7,
+    // Lands a full octave below base, and falls further to get there. It used
+    // to share `receive`'s shape, travel, tier and length while sitting three
+    // semitones away — the same sound twice, which is exactly how it read on
+    // any preset short enough to suppress pitch. Dropping the landing below
+    // everything else in the set is what makes it final.
+    center: -12,
+    travel: 10,
     // The transient is the thud of it landing. Worth keeping even though the
     // valence no longer asks for one.
     forceNoise: true,

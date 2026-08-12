@@ -200,17 +200,36 @@ describe("pairs", () => {
     // Not merely travelling downward — SITTING lower. Without the drop, a pair
     // occupies one range traversed both ways, so the falling member starts
     // above the rising one and reads as the higher of the two.
-    for (const [on, off] of [
-      ["open", "close"],
-      ["toggle.on", "toggle.off"],
-    ] as const) {
-      const a = primary(on)
-      const b = primary(off)
-      // Lower at BOTH ends, not just on the landing. A small drop moves where
-      // the falling member finishes without moving where it starts, which left
-      // `close` beginning above `open` and still reading as the higher one.
-      expect(b.pitch.startHz, `${off} onset`).toBeLessThan(a.pitch.startHz)
-      expect(b.pitch.endHz, `${off} landing`).toBeLessThan(a.pitch.endHz)
+    // Where it SETTLES and where it sits on average — not where it begins.
+    //
+    // The onset used to be asserted too, and that was wrong: satisfying it
+    // requires the drop to exceed travel x sweepScale, so it only ever held
+    // because this ran against Soft alone, whose 0.8 scale let a
+    // five-semitone drop clear a five-semitone travel by a hair. Crisp's 1.3
+    // would have failed it at that travel as well. Demanding it generally
+    // would mean dropping `close` eighteen semitones below `open` on the
+    // aggressive presets, which is not "lower", it is a different sound —
+    // and it lands back under MIN_MUSICAL_HZ, where the floor clamps it and
+    // the mirror breaks.
+    //
+    // A glide is heard as arriving somewhere. Both members traverse a range;
+    // what makes one the lower of the two is that it finishes lower and lives
+    // lower, which is checkable on every preset rather than on the one that
+    // happened to agree.
+    const mean = (v: { pitch: { startHz: number; endHz: number } }) =>
+      Math.sqrt(v.pitch.startHz * v.pitch.endHz)
+    for (const presetId of PRESET_IDS) {
+      for (const [on, off] of [
+        ["open", "close"],
+        ["toggle.on", "toggle.off"],
+      ] as const) {
+        const a = primary(on, presetId)
+        const b = primary(off, presetId)
+        expect(b.pitch.endHz, `${presetId} ${off} landing`).toBeLessThan(a.pitch.endHz)
+        // A clear interval, not a rounding difference — a drop that shows up
+        // only in the third decimal is not one anybody hears.
+        expect(mean(b) * Math.pow(2, 2 / 12), `${presetId} ${off} centre`).toBeLessThan(mean(a))
+      }
     }
   })
 
@@ -720,11 +739,27 @@ describe("preset layers — the thing that makes presets instruments", () => {
     expect(twin.pitch.startHz).toBeCloseTo(first.pitch.startHz, 6)
   })
 
-  it("lets a layer ring on past the note under it", () => {
-    const tap = soundIn("glassy", "tap")
-    const osc = tap.voices.filter((v) => v.kind === "osc")
-    if (osc[0].kind !== "osc" || osc[2].kind !== "osc") throw new Error("expected osc")
-    expect(osc[2].env.decayMs).toBeGreaterThan(osc[0].env.decayMs)
+  it("scales a layer's envelope by its tail, in either direction", () => {
+    // This used to assert that Glassy's top partial outlasts its fundamental,
+    // which stopped being true when Glassy stopped being a bell — a sound whose
+    // partials outlive its note gets brighter as it decays, and that is the
+    // metallic signature we were trying to lose.
+    //
+    // So it tests the mechanism rather than one preset's use of it. `tail` is a
+    // plain multiplier and is just as meaningful below 1 as above; pinning a
+    // direction here made a tuning decision unchangeable without a test edit.
+    for (const presetId of PRESET_IDS) {
+      const preset = PRESETS[presetId]
+      const osc = soundIn(presetId, "tap").voices.filter((v) => v.kind === "osc")
+      for (const [i, layer] of preset.layers.entries()) {
+        const v = osc[i]
+        if (v?.kind !== "osc" || osc[0].kind !== "osc") throw new Error("expected osc")
+        expect(v.env.decayMs, `${presetId} layer ${i}`).toBeCloseTo(
+          osc[0].env.decayMs * (layer.tail ?? 1),
+          4,
+        )
+      }
+    }
   })
 
   it("tags each voice with its layer, so the editor addresses the note", () => {

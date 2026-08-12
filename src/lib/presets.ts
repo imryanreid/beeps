@@ -153,7 +153,10 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     decayMs: 106,
     sustain: 0,
     releaseMs: 42,
-    sweepScale: 0.5,
+    // 0.7, not 0.5. Restraint here is a matter of level — a tenth of Soft's
+    // gain — not of holding still, and at 0.5 every contour compressed far
+    // enough that `close` and `tap` became the same falling sound.
+    sweepScale: 0.7,
     intrinsicSweep: 1,
     sweepShare: 0.22,
     glide: "smooth",
@@ -261,35 +264,59 @@ export const PRESETS: Record<PresetId, PresetDef> = {
   glassy: {
     id: "glassy",
     name: "Glassy",
-    blurb: "Bell-like. An octave and a twelfth ring on above the note, long after it stops.",
+    blurb: "Struck and clear. A bright octave-and-a-twelfth shimmer that fades before the note does.",
     suits: "premium, editorial, anything unhurried",
     baseHz: 760,
-    // Bells are their overtones. The upper partials outlast the fundamental,
-    // which is what `tail` above 1 buys — they are still sounding when the note
-    // underneath has gone.
+    // The partials are SHORTER than the note, not longer, and that inversion is
+    // the whole difference between glass and metal.
     //
-    // So the fundamental is deliberately SHORT and the partials long. Giving
-    // all three the same envelope and stretching the lot produces a chord that
-    // fades, not a struck bell. These tails were cut to 1.35/1.55 to fit the
-    // old flat 200 ms ceiling; the alert window is 700 ms now and they can ring
-    // properly again.
+    // They used to be longer — 1.5 and 1.9, raised deliberately so this would
+    // "ring properly as a bell". It worked, and that was the bug: a bell IS
+    // metal. Measured, those settings doubled the sound's spectral centroid
+    // between its opening quarter and its closing third (988 Hz -> 2137 Hz on
+    // `tap`, against 761 -> 834 for Soft), because the fundamental died first
+    // and left the upper partials sounding alone. A sound that gets BRIGHTER as
+    // it decays is a struck bell, every time.
+    //
+    // Struck glass does the reverse: a bright onset whose high partials fade
+    // faster than the note beneath them. So the shimmer is louder and brief,
+    // and what is left ringing is the note itself — which is also the "clarity"
+    // that was missing, since the thing carrying the sound's identity was the
+    // first thing to disappear.
+    //
+    // The waveforms are all sines and the filter is flat, which help but only
+    // barely: measured, swapping the two triangles out and dropping Q from 2.5
+    // moved the centroid 1041 Hz -> 983 Hz, about 6%. Triangle harmonics fall
+    // off as 1/n-squared and the lowpass had already removed most of what was
+    // left. Worth keeping, not worth mistaking for the fix.
     layers: [
-      { interval: 0, waveform: "triangle", gain: 1 },
-      { interval: 12, waveform: "triangle", gain: 0.3, tail: 1.5 },
-      { interval: 19, waveform: "sine", gain: 0.12, tail: 1.8 },
+      { interval: 0, waveform: "sine", gain: 1 },
+      { interval: 12, waveform: "sine", gain: 0.4, tail: 0.55 },
+      { interval: 19, waveform: "sine", gain: 0.22, tail: 0.4 },
     ],
     attackMs: 3,
-    decayMs: 90,
+    // Longer than they were, because the ring that used to carry this preset's
+    // length is gone: the partials now fade BEFORE the note instead of after
+    // it, which took `toggle.on` down to 68 ms — under the floor where the ear
+    // stops integrating. The length has to come from the note itself now.
+    decayMs: 116,
     sustain: 0,
-    releaseMs: 70,
-    // Bells do not swoop. Almost all the character is in the overtones.
-    sweepScale: 0.45,
+    releaseMs: 88,
+    // At 0.45 every contour in the set compressed
+    // almost to flat and shape stopped telling sounds apart here at all — the
+    // character is carried by the partial stack now, so this does not have to
+    // hold still to earn it.
+    sweepScale: 0.7,
     intrinsicSweep: 0.8,
     sweepShare: 0.16,
     glide: "smooth",
     filterType: "lowpass",
-    filterCutoffHz: 4500,
-    filterQ: 2.5,
+    // Open, and flat. A Q of 2.5 built a resonant bump around the cutoff, and a
+    // resonant peak on top of dense partials is the other half of why this read
+    // as metal. Nothing here should be emphasised over anything else — the
+    // partials are the character, so the filter's job is to stay out of the way.
+    filterCutoffHz: 5200,
+    filterQ: 0.7,
     noise: null,
     gain: { subtle: 0.16, notable: 0.26, alert: 0.34 },
     envScale: { subtle: 0.42, notable: 1.0, alert: 1.35 },
@@ -373,7 +400,7 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     // sweep passes THROUGH the harsh band rather than sitting in it — which is
     // exactly what a zap is, and why the frequency rule is about where a sound
     // lands, not everywhere it has been.
-    sweepScale: 3,
+    sweepScale: 1.8,
     intrinsicSweep: 6,
     sweepShare: 0.1,
     glide: "smooth",
