@@ -302,16 +302,43 @@ function buildVoices(
       // a bell does and the only reason Glassy sounds like glass. A note can
       // ask for one too — that is how `ding`'s overtone rings on.
       const tail = (layer.tail ?? 1) * (note.tail ?? 1)
+      const pitch = {
+        // The layer shift is applied before the floor so an octave-up layer
+        // is never dragged down by a limit meant for the note beneath it.
+        startHz: clamp(Math.max(noteStart * shift, MIN_MUSICAL_HZ), ...LIMITS.freqHz),
+        endHz: clamp(Math.max(noteEnd * shift, MIN_MUSICAL_HZ), ...LIMITS.freqHz),
+        sweepMs,
+      }
       voices.push({
         kind: "osc",
         waveform: layer.waveform,
-        pitch: {
-          // The layer shift is applied before the floor so an octave-up layer
-          // is never dragged down by a limit meant for the note beneath it.
-          startHz: clamp(Math.max(noteStart * shift, MIN_MUSICAL_HZ), ...LIMITS.freqHz),
-          endHz: clamp(Math.max(noteEnd * shift, MIN_MUSICAL_HZ), ...LIMITS.freqHz),
-          sweepMs,
-        },
+        pitch,
+        // The modulator glides WITH the carrier — same shape, scaled by the
+        // ratio. A modulator held still against a gliding carrier would sweep
+        // the ratio itself, so a scoop would change timbre as it moved.
+        ...(layer.fm
+          ? {
+              fm: {
+                pitch: {
+                  startHz: clamp(pitch.startHz * layer.fm.ratio, ...LIMITS.freqHz),
+                  endHz: clamp(pitch.endHz * layer.fm.ratio, ...LIMITS.freqHz),
+                  sweepMs,
+                },
+                // Deviation, in Hz. The index is a multiple of the modulator's
+                // own frequency, which is the standard parameterisation and the
+                // one that keeps a preset sounding the same at every pitch.
+                depthHz: clamp(
+                  pitch.endHz * layer.fm.ratio * layer.fm.index,
+                  0,
+                  LIMITS.freqHz[1],
+                ),
+                decayMs: clamp(
+                  env.decayMs * tail * (layer.fm.decay ?? 0.5),
+                  ...LIMITS.decayMs,
+                ),
+              },
+            }
+          : {}),
         env:
           tail === 1
             ? env

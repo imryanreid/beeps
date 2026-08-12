@@ -13,7 +13,7 @@
 import { describe, expect, it } from "vitest"
 import { createBeeps, envelopeSegments, scheduleSound } from "../runtime/beeps.js"
 import { resolve, DEFAULT_CONFIG } from "./resolve.js"
-import { PRESET_IDS } from "./presets.js"
+import { PRESETS, PRESET_IDS } from "./presets.js"
 
 // ---------------------------------------------------------------------------
 // A recording stand-in for the parts of Web Audio the runtime touches.
@@ -357,5 +357,55 @@ describe("the player, and the mute gate", () => {
     const beeps = createBeeps(config, { context: ctx })
     beeps.enable()
     expect(ctx.resumed).toBeGreaterThan(0)
+  })
+})
+
+describe("frequency modulation", () => {
+  const fmPreset = PRESET_IDS.find((p) => PRESETS[p].layers.some((l) => l.fm))!
+
+  it("wires the modulator into the carrier's FREQUENCY, not the output", () => {
+    // The whole point: a modulator mixed into the output would just be a
+    // second note. Connected to the frequency param it generates sidebands,
+    // which is the only mechanism here that makes a new timbre rather than a
+    // new balance of existing ones.
+    const s = resolve({ presetId: fmPreset, deltas: {} }).sounds.find((x) => x.id === "tap")!
+    const ctx = fake()
+    scheduleSound(ctx, ctx.destination as unknown as AudioNode, s, 0)
+
+    const carriers = s.voices.filter((v) => v.kind === "osc").length
+    const withFm = s.voices.filter((v) => v.kind === "osc" && v.fm).length
+    expect(withFm).toBeGreaterThan(0)
+    // One extra oscillator per modulated voice, and no more.
+    expect(ctx.oscillators.length).toBe(carriers + withFm)
+
+    // Some gain node feeds a frequency param rather than another node.
+    const intoFrequency = ctx.gains.filter((g) =>
+      g.connections.some((c) => c instanceof FakeParam),
+    )
+    expect(intoFrequency.length).toBe(withFm)
+  })
+
+  it("glides the modulator with the carrier, so the ratio holds through a sweep", () => {
+    // A modulator held still under a gliding carrier sweeps the RATIO, which
+    // would change timbre partway through every scoop in the set.
+    const s = resolve({ presetId: fmPreset, deltas: {} }).sounds.find((x) => x.id === "send")!
+    const v = s.voices.find((x) => x.kind === "osc" && x.fm)
+    if (!v || v.kind !== "osc" || !v.fm) throw new Error("expected an FM voice")
+    expect(v.fm.pitch.startHz / v.pitch.startHz).toBeCloseTo(v.fm.pitch.endHz / v.pitch.endHz, 6)
+    expect(v.fm.pitch.sweepMs).toBe(v.pitch.sweepMs)
+  })
+
+  it("lets the depth fall away faster than the note", () => {
+    // What separates a struck object from a buzz: the sound blooms bright and
+    // settles toward a near-sine rather than holding one colour throughout.
+    for (const id of PRESET_IDS) {
+      for (const s of resolve({ presetId: id, deltas: {} }).sounds) {
+        for (const v of s.voices) {
+          if (v.kind !== "osc" || !v.fm) continue
+          expect(v.fm.decayMs, `${id}/${s.id}`).toBeLessThanOrEqual(v.env.decayMs)
+          expect(v.fm.depthHz, `${id}/${s.id}`).toBeGreaterThan(0)
+        }
+      }
+    }
   })
 })

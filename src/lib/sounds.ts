@@ -63,12 +63,41 @@ export type PitchEnvelope = {
   sweepMs: number
 }
 
+/**
+ * A second oscillator wired into this one's FREQUENCY rather than mixed into
+ * the output — frequency modulation.
+ *
+ * This is the only thing in the tool that makes a new timbre rather than a
+ * new balance of existing ones. Everything else — layers, filter, envelope —
+ * adds or removes simple waveforms, so every preset built from them is the
+ * same instrument with the treble moved. FM instead generates sidebands around
+ * the carrier, and where they land depends on the RATIO: whole-number ratios
+ * put them on harmonics and sound like a richer version of the note, while
+ * fractional ones put them between harmonics and sound like struck metal,
+ * wood or glass. Two numbers span instrument families that additive synthesis
+ * cannot reach at all.
+ *
+ * The depth falls away over its own decay, which is what makes an FM sound
+ * bloom and then settle rather than buzzing evenly throughout. A bell is
+ * mostly this: a bright inharmonic attack collapsing to a near-sine.
+ */
+export type FmSpec = {
+  /** The modulator's pitch — already ratio-scaled and gliding with the carrier. */
+  pitch: PitchEnvelope
+  /** Peak deviation in Hz. */
+  depthHz: number
+  /** How long the deviation takes to fall away. Usually shorter than the note. */
+  decayMs: number
+}
+
 export type OscVoice = {
   kind: "osc"
   waveform: Waveform
   pitch: PitchEnvelope
   env: Envelope
   gain: number
+  /** Frequency modulation, when the preset's layer asks for it. See FmSpec. */
+  fm?: FmSpec
   /** Delay from the sound's t0. A two-note sound is two voices, not a special case. */
   startOffsetMs: number
   /**

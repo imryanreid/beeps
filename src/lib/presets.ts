@@ -62,6 +62,25 @@ export type PresetLayer = {
   gain: number
   /** Multiplier on decay and release. Above 1 makes this layer ring on. */
   tail?: number
+  /**
+   * Frequency modulation for this layer. See `FmSpec` in sounds.ts for what it
+   * does, and why it is the one lever here that makes a new TIMBRE rather than
+   * a new balance of existing ones.
+   *
+   * `ratio` is the modulator's frequency as a multiple of the note. Whole
+   * numbers land the sidebands on harmonics and thicken the note; fractional
+   * ones land them between harmonics and read as struck metal, wood or glass.
+   * 3.5 is the classic bell.
+   *
+   * `index` is depth, as a multiple of the modulator's own frequency. Under 1
+   * colours the tone; 2 to 5 is audibly a different instrument; past about 8 it
+   * stops sounding pitched at all.
+   *
+   * `decay` is the share of the layer's own decay over which the depth falls
+   * away, default 0.5. Below 1 the sound blooms bright and settles, which is
+   * most of what makes FM read as a struck object rather than a buzz.
+   */
+  fm?: { ratio: number; index: number; decay?: number }
 }
 
 export type PresetDef = {
@@ -223,7 +242,12 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     // No octave layer. Warmth is darkness, and shine works against it — the
     // body comes from the three unisons under a low cutoff instead.
     layers: [
-      { interval: 0, waveform: "sine", gain: 1 },
+      {
+        interval: 0, waveform: "sine", gain: 1,
+        // Unison ratio, so sidebands land on the note's own harmonics and read
+        // as body rather than as a different instrument.
+        fm: { ratio: 1, index: 0.7, decay: 0.9 },
+      },
       { interval: 0, detuneCents: 12, waveform: "sine", gain: 0.9 },
       { interval: 0, detuneCents: -12, waveform: "sine", gain: 0.9 },
     ],
@@ -250,7 +274,12 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     suits: "therapy, meditation, anything that should slow you down",
     baseHz: 700,
     layers: [
-      { interval: 0, waveform: "sine", gain: 1 },
+      {
+        interval: 0, waveform: "sine", gain: 1,
+        // Half the note's frequency, putting sidebands BELOW it as well as
+        // above — the underwater weight this preset is named for.
+        fm: { ratio: 0.5, index: 2.2, decay: 0.7 },
+      },
       { interval: 12, waveform: "sine", gain: 0.18, tail: 0.7 },
     ],
     attackMs: 8,
@@ -299,7 +328,13 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     // fundamental here — a partial that outlives the note is the bell this
     // preset spent three rounds escaping.
     layers: [
-      { interval: 0, waveform: "sine", gain: 1 },
+      {
+        interval: 0, waveform: "sine", gain: 1,
+        // 3.5 is the classic bell ratio — sidebands land BETWEEN harmonics,
+        // which is what struck glass and struck metal have in common, and what
+        // no arrangement of additive partials could reach.
+        fm: { ratio: 3.5, index: 1.4, decay: 0.3 },
+      },
       { interval: 14.5, waveform: "sine", gain: 0.075, tail: 0.9 },
     ],
     // Fast enough to be struck, not so fast it clicks. 2 ms is 1.8 cycles at
@@ -365,7 +400,12 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     // off as 1/n-squared and the lowpass had already removed most of what was
     // left. Worth keeping, not worth mistaking for the fix.
     layers: [
-      { interval: 0, waveform: "sine", gain: 1 },
+      {
+        interval: 0, waveform: "sine", gain: 1,
+        // A short, high, inharmonic burst: the mallet hitting, gone inside a
+        // tenth of the decay. The bars themselves are the layers below.
+        fm: { ratio: 5.6, index: 3.5, decay: 0.12 },
+      },
       { interval: 12, waveform: "sine", gain: 0.42, tail: 0.55 },
       // The twelfth is quiet on purpose. An octave reinforces the note under
       // it; a twelfth is a fifth, a NEW pitch class, and at any strength it
@@ -437,7 +477,12 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     suits: "games, kids' apps, anything that rewards you",
     baseHz: 800,
     layers: [
-      { interval: 0, waveform: "triangle", gain: 1 },
+      {
+        interval: 0, waveform: "triangle", gain: 1,
+        // An octave up, harmonically, so it brightens the attack and falls
+        // away — bouncy rather than metallic.
+        fm: { ratio: 2, index: 1.6, decay: 0.35 },
+      },
       { interval: 12, waveform: "square", gain: 0.22 },
     ],
     attackMs: 2,
@@ -496,7 +541,12 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     suits: "games, dashboards, anything that wants to feel like a console",
     baseHz: 820,
     layers: [
-      { interval: 0, waveform: "sawtooth", gain: 1 },
+      {
+        interval: 0, waveform: "sawtooth", gain: 1,
+        // Deep and inharmonic. This is the clang the resonant filter sweeps
+        // through; a saw alone had buzz but no metal.
+        fm: { ratio: 2.4, index: 5, decay: 0.55 },
+      },
       { interval: 7, waveform: "sawtooth", gain: 0.4 },
     ],
     attackMs: 1,

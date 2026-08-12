@@ -193,6 +193,49 @@ export function scheduleSound(ctx, destination, sound, when, onVoice) {
           f.exponentialRampToValueAtTime(to, start + sweepS)
         }
       }
+
+      // Frequency modulation. The modulator is not mixed into the output — it
+      // is connected to the carrier's frequency, where Web Audio ADDS it to the
+      // scheduled value, so the carrier's own glide survives underneath.
+      //
+      // The depth falls to near-zero over its own decay, which is what makes an
+      // FM voice bloom bright and settle to a near-sine instead of buzzing at
+      // one colour the whole way through.
+      if (voice.fm) {
+        const mod = ctx.createOscillator()
+        mod.type = "sine"
+        const modFrom = clampHz(voice.fm.pitch.startHz)
+        const modTo = clampHz(voice.fm.pitch.endHz)
+        mod.frequency.setValueAtTime(modFrom, start)
+        if (modTo !== modFrom) {
+          mod.frequency.exponentialRampToValueAtTime(
+            modTo,
+            start + Math.max(0.001, voice.fm.pitch.sweepMs / 1000),
+          )
+        }
+
+        const depth = ctx.createGain()
+        const peakHz = Math.max(EPSILON, voice.fm.depthHz)
+        depth.gain.setValueAtTime(peakHz, start)
+        depth.gain.exponentialRampToValueAtTime(
+          EPSILON,
+          start + Math.max(0.001, voice.fm.decayMs / 1000),
+        )
+
+        mod.connect(depth)
+        depth.connect(node.frequency)
+        mod.start(start)
+        mod.stop(stopAt)
+        mod.onended = () => {
+          try {
+            mod.disconnect()
+            depth.disconnect()
+          } catch {
+            /* already torn down */
+          }
+        }
+        if (onVoice) onVoice(mod, stopAt)
+      }
     }
 
     node.connect(env)
