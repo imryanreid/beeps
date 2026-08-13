@@ -66,10 +66,11 @@
       this tool is meant to be handed to a coding agent, so the description
       says what it exports and llms.txt documents the URL API.
 
-      The no-JavaScript claim names /api/sounds specifically, not the page.
-      The page is client-rendered and its served HTML is the shell; the
-      endpoint is what makes the claim true, and it was written only after a
-      real curl proved the page could not back it.
+      The no-JavaScript claim is true of the page itself now: middleware routes
+      "/" through api/render, which embeds the set in the HTML. It was false
+      for a while and said so, because a real curl proved it — verify with
+      curl, never a browser, since the browser is the one client that already
+      worked.
     -->
     <script type="application/ld+json">
       {
@@ -79,7 +80,7 @@
         "url": "https://www.beeps.studio/",
         "applicationCategory": "DesignApplication",
         "operatingSystem": "Any (web browser)",
-        "description": "Built to be handed to a coding agent: /api/sounds returns the resolved set as JSON or plain text with no JavaScript required, /llms.txt documents every parameter and every sound, and the page renders the complete set as plain text in the DOM. Generates a coherent set of eleven interface sounds — tap, toggle on and off, open, close, send, receive, success, error, notification and delete — synthesized in the browser with Web Audio rather than sampled, so there is no audio to host and nothing to license. Every sound is derived from one base frequency, paired sounds invert by construction, and loudness is normalized across the set. Exports to WAV, an inline data URI, a zero-dependency synthesis function, JSON, or markdown that tells an agent when each sound should and should not play.",
+        "description": "Built to be handed to a coding agent: fetching any URL returns the complete sound set embedded in the HTML with no JavaScript required, /api/sounds returns the same data as JSON or plain text, and /llms.txt documents every parameter and every sound. Generates a coherent set of eleven interface sounds — tap, toggle on and off, open, close, send, receive, success, error, notification and delete — synthesized in the browser with Web Audio rather than sampled, so there is no audio to host and nothing to license. Every sound is derived from one base frequency, paired sounds invert by construction, and loudness is normalized across the set. Exports to WAV, an inline data URI, a zero-dependency synthesis function, JSON, or markdown that tells an agent when each sound should and should not play.",
         "isAccessibleForFree": true,
         "isPartOf": {
           "@type": "WebSite",
@@ -102,7 +103,7 @@
           "Loudness normalized across the set by A-weighted RMS, so no sound jumps out",
           "A duration budget with both a ceiling and a floor, since a sound under ~70 ms is heard as quieter rather than subtler",
           "Export to WAV, an inline data URI, a zero-dependency synthesis function, JSON, or agent-readable markdown",
-          "A no-JavaScript JSON and plain-text endpoint at /api/sounds, taking the same query string as the page",
+          "Readable without JavaScript — every URL embeds the complete set in the HTML, and /api/sounds serves the same data as JSON or plain text",
           "Shareable permalinks that encode the whole set in the URL"
         ]
       }

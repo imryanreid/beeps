@@ -18,11 +18,15 @@ exact inversions of each other, and loudness is normalized across the set.
 
 ## Using this as a tool
 
-Build a URL. The page renders the whole set as plain text in the DOM, so a
-browser or a headless agent that runs JavaScript can read it directly.
+Build a URL and fetch it. **You do not need to run JavaScript** — the server
+injects the whole set into the HTML as both a `<pre>` block and a
+`<script type="application/json">`, so a plain fetch of any URL below returns
+readable data. (Both shapes on purpose: HTML-to-markdown conversion strips
+script tags, so JSON alone would be invisible to the tools most likely to be
+reading this.)
 
-**If you do not run JavaScript**, use `/api/sounds` instead. It takes the same
-query string and needs no browser:
+If you want data without the page around it, `/api/sounds` takes the same
+query string:
 
 - `https://www.beeps.studio/api/sounds` — the default set, as JSON
 - `https://www.beeps.studio/api/sounds?format=text` — the same, as plain text
