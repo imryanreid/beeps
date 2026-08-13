@@ -73,8 +73,20 @@ const round = (v: number, dp = 0) => {
  * care.
  */
 export const idToKey = (id: SoundId): string => id.replace(".", "-")
+
+/**
+ * Accepts BOTH spellings: `toggle-on` and `toggle.on`.
+ *
+ * Encoding still emits the hyphen, so shared links are unchanged — this only
+ * makes decoding lenient. The dotted form is the id printed everywhere else
+ * (the page, the JSON, the markdown export), so copying a name out of the
+ * output and pasting it into a URL is the obvious thing to try. It used to
+ * resolve to nothing: the sound kept its default and the only feedback was a
+ * warning that could not even name the key, because the quote-back allowlist
+ * below rejects dots. Taking both costs one comparison.
+ */
 export const keyToId = (key: string): SoundId | undefined =>
-  SOUND_IDS.find((id) => idToKey(id) === key)
+  SOUND_IDS.find((id) => idToKey(id) === key || id === key)
 
 function encodeDelta(delta: SoundDelta): string {
   const parts: string[] = []
@@ -221,7 +233,10 @@ export function decodeWarnings(search: string): string[] {
     // Quote back only what looks like a key, and only a few. Rejected input is
     // the least trustworthy thing in the system, and this is the one place
     // that repeats it.
-    const named = unknown.filter((k) => /^[A-Za-z0-9_-]{1,20}$/.test(k)).slice(0, 4)
+    // The dot is allowed through deliberately: sound ids contain one, so
+    // excluding it silenced the naming in exactly the case where naming the key
+    // would have explained the mistake. Still an allowlist, still length-capped.
+    const named = unknown.filter((k) => /^[A-Za-z0-9_.-]{1,20}$/.test(k)).slice(0, 4)
     const which = named.length ? ` (${named.join(", ")})` : ""
     out.push(
       `${unknown.length} parameter${unknown.length === 1 ? "" : "s"} in this link ` +

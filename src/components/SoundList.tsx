@@ -70,14 +70,21 @@ export default function SoundList({
           showIntro ? "mb-1" : "mb-5",
         )}
       >
-        <span className="flex items-baseline gap-1">
+        {/*
+          items-CENTER, not baseline. A button wrapping only an SVG has no text
+          baseline, so baseline alignment put its bottom edge on the heading's
+          baseline and hung the caret high. Centring on the heading's box is
+          what reads as level, and the button is an explicit square so the glyph
+          is centred inside it too.
+        */}
+        <span className="flex items-center gap-1">
           <h2 className="font-display text-xl font-semibold tracking-tight">Sounds</h2>
           <button
             type="button"
             onClick={() => setShowIntro((v) => !v)}
             aria-expanded={showIntro}
             aria-label={showIntro ? "Hide what this section is" : "What is this section?"}
-            className="text-ash hover:text-ink -m-1 p-1 transition-colors"
+            className="text-ash hover:text-ink flex size-6 items-center justify-center rounded transition-colors"
           >
             <CaretRight
               size={12}

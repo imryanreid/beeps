@@ -32,11 +32,36 @@ query string:
 - `https://www.beeps.studio/api/sounds?format=text` — the same, as plain text
 - `https://www.beeps.studio/api/sounds?p=crisp` — a different character
 
-It returns every sound with its tier, length, frequency range and its play/do-not-play
-rules, plus the tier budgets and the preset list. One thing it deliberately omits:
-`normalizedGain`. Loudness normalization is measured from a real render, which
-needs Web Audio, so the browser computes it and this endpoint cannot. Sounds
-played from the page are level-matched; these parameters alone are not.
+One thing it deliberately omits: `normalizedGain`. Loudness normalization is
+measured from a real render, which needs Web Audio, so the browser computes it
+and this endpoint cannot. Sounds played from the page are level-matched; these
+parameters alone are not. Everything else is resolved and exact.
+
+### What each sound carries
+
+| Field | Meaning |
+| --- | --- |
+| `id` | The sound's name, e.g. `toggle.on`. |
+| `key` | The URL parameter name, e.g. `toggle-on`. Both spellings decode; this is the canonical one. |
+| `tier` | `subtle`, `notable` or `alert`. Drives the length budget and the level. |
+| `durationMs` | The envelope alone. Whole milliseconds. |
+| `soundingMs` | Adds note offsets and any room tail. This is what the budget is measured against. |
+| `pitchHz` | **The primary voice's own sweep** — `start`, `end`, `sweepMs`. This is the field an inversion pair mirrors on. |
+| `frequencyHz` | **The span across every voice** — `min`, `max`. Wider than `pitchHz` on a layered sound, and NOT mirrored across a pair, because the two members can carry different layer counts. Use `pitchHz` to check the inversion, never this. |
+| `envelopeMs` | Resolved `attack`, `decay`, `sustain` (a level, 0–1), `release`. |
+| `filter` | Resolved `type`, `cutoffHz`, `q`, and `endCutoffHz` when the shape sweeps it. |
+| `voices` | How many layers this sound sums. |
+| `budget` | The tier's `minMs`/`maxMs`, a `verdict` of `ok`/`short`/`long`, and a `problem` sentence when it is not `ok`. |
+| `overrides` | Present only when the link edited this sound; lists the field names it set. |
+| `voice` | Present only when this sound was given a preset of its own. |
+| `character` | One sentence describing how it behaves, derived from the numbers above. |
+| `when` / `whenNot` | The play and do-not-play rules. |
+
+Set-level, alongside the sounds: `tiers` (the three budgets), `presets`,
+`baseHz`, `preset`, and — when they apply — `warnings` for a link that did not
+arrive intact and `budgetViolations` for any sound outside its tier. Both of
+those are absent rather than empty when there is nothing to report, so their
+presence is the signal.
 
 The page itself takes the same parameters:
 
@@ -53,8 +78,10 @@ The page itself takes the same parameters:
 
 ### Per-sound parameters
 
-One parameter per sound, named after it. `toggle.on` and `toggle.off` are
-written `toggle-on` and `toggle-off`, because a dot is the field separator.
+One parameter per sound, named after it. The canonical spelling replaces the dot
+with a hyphen — `toggle-on`, `toggle-off` — because a dot is the field separator
+inside the value. **The dotted form is accepted too**, so the `id` printed in the
+output can be pasted straight into a URL and will work.
 
 The value is dot-separated fields, each a letter followed by a number:
 `tap=f720.d100.g-3`. Omit any field to keep what the preset derives — only

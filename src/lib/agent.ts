@@ -16,10 +16,71 @@
 // `normalizedGain` — a number that only exists after
 // a real render. See `NOTES` below.
 // ==============================================
-import { DURATION_BUDGET, frequencySpan, resolve, soundingMs } from "./resolve.js"
-import { decodeWarnings, resolveConfig } from "./params.js"
+import {
+  DURATION_BUDGET,
+  durationVerdict,
+  frequencySpan,
+  resolve,
+  soundingMs,
+} from "./resolve.js"
+import { decodeWarnings, idToKey, resolveConfig } from "./params.js"
 import { PRESETS, PRESET_IDS, type PresetId } from "./presets.js"
-import { SOUND_SPECS } from "./sounds.js"
+import { SOUND_SPECS, type Sound } from "./sounds.js"
+
+/** Semitone names, for the character line. Index is the interval size. */
+const INTERVALS = [
+  "unison",
+  "minor second",
+  "major second",
+  "minor third",
+  "major third",
+  "fourth",
+  "tritone",
+  "fifth",
+  "minor sixth",
+  "major sixth",
+  "minor seventh",
+  "major seventh",
+  "octave",
+]
+
+/**
+ * One sentence describing how a sound behaves, derived from its own numbers.
+ *
+ * A consumer can already read every parameter; what it cannot do cheaply is say
+ * what they add up to. "Rises a major second over 437 ms, swelling with no
+ * transient" is the difference between an agent measuring a set and being able
+ * to describe it.
+ */
+function characterLine(s: Sound): string {
+  const osc = s.voices.find((v) => v.kind === "osc")
+  const parts: string[] = []
+
+  if (osc && osc.kind === "osc") {
+    const { startHz, endHz } = osc.pitch
+    const semis = Math.abs(12 * Math.log2(endHz / startHz))
+    const name = INTERVALS[Math.round(semis)] ?? `${semis.toFixed(1)} semitones`
+    if (semis < 0.5) parts.push(`Holds one note for ${Math.round(soundingMs(s))} ms`)
+    else
+      parts.push(
+        `${endHz > startHz ? "Rises" : "Falls"} a ${name} over ${Math.round(soundingMs(s))} ms`,
+      )
+
+    const a = osc.env.attackMs
+    if (a <= 2) parts.push("opening on a click")
+    else if (a <= 8) parts.push("with a fast onset")
+    else if (a >= 25) parts.push("swelling in with no transient")
+    else parts.push("with a soft onset")
+  } else {
+    parts.push(`A noise burst of ${Math.round(soundingMs(s))} ms`)
+  }
+
+  if (s.filter.cutoffHz <= 1200) parts.push("and a dark, filtered tail")
+  else if (s.filter.q >= 8) parts.push("and a resonant peak")
+  if (s.space) parts.push("in a small room")
+
+  return `${parts.join(", ")}.`
+}
 
 /** The origin this request arrived on, honouring the proxy headers. */
 export function publicOrigin(request: Request): string {
@@ -63,23 +124,86 @@ export function buildAgentPayload(search: string, origin: string): AgentPayload 
   const sounds = set.sounds.map((s) => {
     const spec = SOUND_SPECS.find((x) => x.id === s.id)!
     const span = frequencySpan(s)
+    const osc = s.voices.find((v) => v.kind === "osc")
+    const budget = DURATION_BUDGET[s.tier]
+    const verdict = durationVerdict(s)
+
+    // Which fields this link edited, and whether it was given its own voice.
+    // Without these the only way to tell an edited set from a stock one was to
+    // fetch the default and diff all eleven rows by hand.
+    const delta = config.deltas[s.id]
+    const overrides = delta ? Object.keys(delta).sort() : []
+    const voice = config.presets?.[s.id]
+
     return {
       id: s.id,
+      /** URL parameter name for this sound. Both spellings decode; this is the canonical one. */
+      key: idToKey(s.id),
       tier: s.tier,
-      durationMs: round(s.durationMs, 1),
-      soundingMs: round(soundingMs(s), 1),
+      durationMs: round(s.durationMs),
+      soundingMs: round(soundingMs(s)),
+      /** Lowest and highest frequency ANY voice touches — not the primary sweep. */
       frequencyHz: { min: round(span.minHz), max: round(span.maxHz) },
+      /**
+       * The primary voice's own sweep. This is the one that mirrors across an
+       * inversion pair; `frequencyHz` spans every layer and does not.
+       */
+      ...(osc && osc.kind === "osc"
+        ? {
+            pitchHz: {
+              start: round(osc.pitch.startHz),
+              end: round(osc.pitch.endHz),
+              sweepMs: round(osc.pitch.sweepMs),
+            },
+            envelopeMs: {
+              attack: round(osc.env.attackMs, 1),
+              decay: round(osc.env.decayMs, 1),
+              sustain: osc.env.sustain,
+              release: round(osc.env.releaseMs, 1),
+            },
+          }
+        : {}),
+      filter: {
+        type: s.filter.type,
+        cutoffHz: round(s.filter.cutoffHz),
+        ...(s.filter.endCutoffHz ? { endCutoffHz: round(s.filter.endCutoffHz) } : {}),
+        q: round(s.filter.q, 2),
+      },
       voices: s.voices.length,
+      budget: {
+        minMs: budget.minMs,
+        maxMs: budget.maxMs,
+        verdict,
+        ...(verdict !== "ok"
+          ? {
+              problem:
+                verdict === "long"
+                  ? `${round(soundingMs(s))} ms exceeds the ${budget.maxMs} ms ceiling for ${s.tier}.`
+                  : `${round(soundingMs(s))} ms is under the ${budget.minMs} ms floor for ${s.tier}; it will be heard as quieter rather than subtler.`,
+            }
+          : {}),
+      },
+      ...(overrides.length ? { overrides } : {}),
+      ...(voice ? { voice } : {}),
+      character: characterLine(s),
       when: spec.when,
       whenNot: spec.whenNot,
     }
   })
+
+  // Budget violations are a property of the SET, so they belong beside the
+  // link warnings rather than only per-sound. The page flags these in amber;
+  // until now the agent surface shipped them silently.
+  const overBudget = sounds.filter((s) => s.budget.verdict !== "ok")
 
   const json = {
     $schema: "https://www.beeps.studio/schema/v1",
     generator: "Beeps — www.beeps.studio",
     source: `${origin}/${search}`,
     ...(warnings.length ? { warnings } : {}),
+    ...(overBudget.length
+      ? { budgetViolations: overBudget.map((s) => `${s.id}: ${s.budget.problem}`) }
+      : {}),
     preset: set.presetId,
     presetName: preset.name,
     baseHz: round(set.baseHz, 1),
@@ -102,13 +226,37 @@ export function buildAgentPayload(search: string, origin: string): AgentPayload 
   if (warnings.length) {
     lines.push("THIS LINK DID NOT ARRIVE INTACT", ...warnings.map((w) => `  ${w}`), "")
   }
+  if (overBudget.length) {
+    lines.push(
+      "OUT OF BUDGET",
+      ...overBudget.map((s) => `  ${s.id}: ${s.budget.problem}`),
+      "",
+    )
+  }
+  lines.push("TIER BUDGETS")
+  for (const [tier, b] of Object.entries(DURATION_BUDGET)) {
+    lines.push(`  ${tier.padEnd(9)} ${b.minMs}-${b.maxMs} ms`)
+  }
+  lines.push("")
   lines.push("SOUNDS")
   for (const s of sounds) {
+    lines.push(`  ${s.id}${s.voice ? `  [voice: ${s.voice}]` : ""}`)
+    if (s.overrides) lines.push(`    override  ${s.overrides.join(", ")}`)
     lines.push(
-      `  ${s.id}`,
-      `    tier      ${s.tier}`,
-      `    length    ${s.soundingMs} ms`,
-      `    range     ${s.frequencyHz.min}-${s.frequencyHz.max} Hz`,
+      `    tier      ${s.tier}${s.budget.verdict === "ok" ? "" : `  ** ${s.budget.verdict.toUpperCase()} **`}`,
+      `    length    ${s.soundingMs} ms  (${s.tier} budget ${s.budget.minMs}-${s.budget.maxMs})`,
+    )
+    if (s.pitchHz) {
+      lines.push(`    pitch     ${s.pitchHz.start} -> ${s.pitchHz.end} Hz over ${s.pitchHz.sweepMs} ms`)
+    }
+    if (s.envelopeMs) {
+      const e = s.envelopeMs
+      lines.push(`    envelope  a ${e.attack} / d ${e.decay} / s ${e.sustain} / r ${e.release} ms`)
+    }
+    lines.push(
+      `    filter    ${s.filter.type} ${s.filter.cutoffHz} Hz, Q ${s.filter.q}`,
+      `    span      ${s.frequencyHz.min}-${s.frequencyHz.max} Hz across ${s.voices} voice${s.voices === 1 ? "" : "s"}`,
+      `    character ${s.character}`,
       `    play when ${s.when}`,
       `    not when  ${s.whenNot}`,
     )
