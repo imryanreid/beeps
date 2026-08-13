@@ -76,7 +76,7 @@ what you change needs to appear.
 Anything out of range is clamped rather than rejected, and an unparseable field
 is dropped with a note on the page. A link always resolves to a playable set.
 
-## The set
+## Sounds
 
 | Sound | Tier | Plays when | Does not play when |
 | --- | --- | --- | --- |

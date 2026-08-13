@@ -132,7 +132,8 @@ function SpectrumRail({ set }: { set: SoundSet }) {
   const ticks = [125, 250, 500, 1000, 2000, 4000, 8000]
   return (
     <div>
-      <Label className="mb-2">Where the set sits</Label>
+      {/* `block` — Label renders a <span>, and mb-2 on an inline box is inert. */}
+      <Label className="mb-2 block">Where the set sits</Label>
       <div className="border-line relative h-24 overflow-hidden rounded-lg border">
         {/* Small-speaker floor — a gradient, because the knee depends on the
             enclosure rather than on a standard. Laptop speakers have it too;

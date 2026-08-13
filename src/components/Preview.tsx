@@ -203,7 +203,9 @@ function Sequence({ playSequence }: { playSequence: (ids: SoundId[], gapMs: numb
   ]
   return (
     <Card>
-      <Label className="mb-3">Sequence</Label>
+      {/* `block` for the same reason as the group labels above: Label is a
+          <span>, and a vertical margin on an inline box does nothing. */}
+      <Label className="mb-3 block">Sequence</Label>
       <p className="text-ash mb-4 text-sm leading-relaxed">
         A real interaction is several sounds in a row. Clashes between them only show up here.
       </p>

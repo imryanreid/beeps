@@ -259,7 +259,7 @@ export function toAgentMarkdown(set: SoundSet, url: string, warnings: string[] =
     "files, no sample library and nothing to license. The whole set is the data below",
     "plus the function further down.",
     "",
-    "## The set",
+    "## Sounds",
     "",
     "| Sound | Tier | ms | Interval | When to play it | When NOT to |",
     "| --- | --- | --- | --- | --- | --- |",
