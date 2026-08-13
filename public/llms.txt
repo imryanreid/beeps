@@ -144,6 +144,20 @@ played too often.
 - Do not sound anything the user can already see happening.
 - Respect `prefers-reduced-motion` as a hint that a quieter interface is wanted.
 
+## Other tools in this family
+
+Same contract everywhere: state lives in the query string, every page serves its
+values as plain text without JavaScript, and there is no account, key or rate
+limit. Generated from the shared manifest — see `src/shared/tools.ts`.
+
+<!-- FAMILY:START format="list" current="sound" -->
+  Ramps    Color scales & semantic tokens  https://www.ramps.studio/
+  Springs  Motion, easings & durations     https://www.springs.studio/
+  Depths   Elevation & shadows             not yet released
+  Texts    Type styles & scaling           not yet released
+  SVGs     Icon cleanup & alignment        not yet released
+<!-- FAMILY:END -->
+
 ## Source
 
 MIT licensed. https://github.com/imryanreid/beeps
