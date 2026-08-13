@@ -255,6 +255,24 @@ function SoundRow({
               edited
             </span>
           )}
+          {/*
+            Only when this sound's voice differs from the set's. A per-sound
+            override was previously invisible here — the row said "edited", the
+            same as a gain nudge — so the one change that alters how a sound is
+            synthesized read as the mildest kind of edit. Bordered rather than
+            filled so it reads as a different class of fact from "edited".
+
+            Deliberately NOT shown on every row: the voice is the set's preset
+            for all eleven unless overridden, and printing it eleven times is
+            one word of information spent eleven ways. `tier` stays because it
+            varies per sound and is the only thing here explaining the length
+            budget and level.
+          */}
+          {presetId !== setPresetId && (
+            <span className="border-ink/25 text-ash rounded-full border px-1.5 text-[8px] tracking-wide uppercase">
+              {presetId}
+            </span>
+          )}
           <span className="text-ash hidden font-mono text-[11px] sm:inline">{sound.tier}</span>
           <span className="text-ash ml-auto hidden font-mono text-[11px] md:inline">
             {Math.round(span.minHz)}–{Math.round(span.maxHz)} Hz
@@ -409,6 +427,7 @@ function Editor({
                 step={5}
                 showLabels={showLabels}
                 onChange={(v) => onEdit({ startHz: v })}
+                mirrors={mirrored ? partner.id : undefined}
                 hint="Higher reads as lighter and more urgent."
               />
               <Field
@@ -420,6 +439,7 @@ function Editor({
                 step={5}
                 showLabels={showLabels}
                 onChange={(v) => onEdit({ endHz: v })}
+                mirrors={mirrored ? partner.id : undefined}
                 hint="Where it settles. This is the note you actually remember."
               />
               <Field
@@ -434,10 +454,18 @@ function Editor({
                 hint="How long the pitch takes to travel. Short is a chirp; long is a swoop."
               />
             </div>
+            {/*
+              States what does NOT mirror, since the two controls that do now
+              say so themselves. This note used to sit under all three fields
+              claiming "editing either pitch mirrors the other", which read as
+              covering Glide too — and Glide is character, not direction, so it
+              has never mirrored.
+            */}
             {mirrored && (
               <p className="text-ash mt-3 text-[11px] leading-relaxed">
-                Paired with <span className="text-ink font-medium">{partner.id}</span> — editing
-                either pitch mirrors the other.
+                The two pitches above mirror onto{" "}
+                <span className="text-ink font-medium">{partner.id}</span>. Glide, shape and filter
+                are this sound&rsquo;s alone.
               </p>
             )}
           </Group>
@@ -595,6 +623,7 @@ function Field({
   step,
   dp = 0,
   hint,
+  mirrors,
   showLabels,
   onChange,
 }: {
@@ -606,14 +635,32 @@ function Field({
   step: number
   dp?: number
   hint?: string
+  /**
+   * Partner id, when editing THIS control also moves that sound.
+   *
+   * On the control rather than on the group, because only some of a group's
+   * fields mirror: the two pitches do, Glide does not, and a note under the
+   * whole group read as covering all three.
+   */
+  mirrors?: string
   showLabels: boolean
   onChange: (v: number) => void
 }) {
   return (
     <div>
       <div className="mb-1.5 flex items-baseline justify-between gap-2">
-        <Label className="mb-0">{label}</Label>
-        <span className="text-ash font-mono text-[11px]">
+        <span className="flex min-w-0 items-baseline gap-1.5">
+          <Label className="mb-0">{label}</Label>
+          {mirrors && (
+            <span
+              className="text-ash/70 shrink-0 font-mono text-[10px]"
+              title={`Editing this also moves ${mirrors}`}
+            >
+              ⇄ {mirrors}
+            </span>
+          )}
+        </span>
+        <span className="text-ash shrink-0 font-mono text-[11px]">
           {value.toFixed(dp)} {unit}
         </span>
       </div>
