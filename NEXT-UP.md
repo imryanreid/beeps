@@ -14,14 +14,16 @@
 still points at Squarespace**; the site goes live on the real domain the moment
 those records change. See "Blockers" below for the exact records.
 
-**v1 feature-complete, not yet deployed.** Everything in the v1 scope works:
-the synth core, three presets, the eleven-sound set, semantic pairing,
-rapid-fire preview, URL state, the per-sound editor with the spectrum rail, and
-all six exports. 104 tests. Builds clean and runs from `file://`.
+Everything in the v1 scope works: the synth core, nine presets, the
+eleven-sound set, semantic pairing, FM, space, per-sound voices, rapid-fire
+preview, URL state, the per-sound editor with the spectrum rail, and all six
+exports. 166 tests. Builds clean and runs from `file://`.
 
-Not done: no domain, no Vercel project, no git remote, no agent surfaces
-(`api/`, `llms.txt`, JSON-LD). And the presets have not been tuned by ear —
-see below, it is the next real piece of work.
+**Still to do:** the no-JavaScript agent surface (`middleware.ts` + `api/`), an
+OG card, and the upstream manifest flip — deliberately deferred until the tool
+is actually ready, so ramps.studio and springs.studio still show Beeps as
+"soon". The presets have had several rounds by ear but the newest numbers (FM
+indices, room sizes) are measured, not heard.
 
 ## Session log
 
@@ -325,12 +327,19 @@ without checking.
 
 ## Known blockers / open
 
-- **No domain.** `beeps.studio` isn't registered, so there's no canonical tag,
-  `og:` block, JSON-LD, `robots.txt` or `sitemap.xml` yet. They land together in
-  one commit when it does. `CLAUDE.md` lists every file that has to change.
-- **No Vercel project yet** — comes after the repo is pushed.
-- **No git remote yet.** The repo is initialised locally on `main` with no
-  origin. Six commits, ready to push.
+- **DNS is the only thing between this and the real domain.** `beeps.studio`
+  is registered and its nameservers point at Squarespace. Both `beeps.studio`
+  and `www.beeps.studio` are already attached to the Vercel project, so the
+  site switches over the moment these records exist at Squarespace:
+
+  | Type | Host | Value |
+  | --- | --- | --- |
+  | `A` | `@` | `76.76.21.21` |
+  | `CNAME` | `www` | `cname.vercel-dns.com` |
+
+  `www` is canonical (matching ramps.studio and springs.studio), so the apex
+  should redirect to it — Vercel does that automatically once both resolve.
+  Verify with `vercel domains inspect www.beeps.studio`.
 - **Family prep is on branches, unpushed** — `family-prep-for-beeps` in both
   Ramps and Motion, carrying the shared `ExportPanel` binary channel, the
   missing sync scripts and the doc reconciliation.
