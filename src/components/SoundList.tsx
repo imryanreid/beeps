@@ -55,20 +55,49 @@ export default function SoundList({
   // One setting for the whole list, not per row — flipping it back on for every
   // sound you open would be its own small annoyance.
   const [showLabels, setShowLabels] = useState(false)
+  // The explainer is for a first visit; it is noise on every one after that,
+  // and it sits directly above the thing it describes. Collapsed by default,
+  // one caret away.
+  const [showIntro, setShowIntro] = useState(false)
 
   return (
     <section className="mb-12">
-      <div className="mb-1 flex flex-wrap items-baseline justify-between gap-3">
-        <h2 className="font-display text-xl font-semibold tracking-tight">Sounds</h2>
+      {/* Carries the bottom margin when the explainer is collapsed, so hiding
+          it does not pull the list up under the heading. */}
+      <div
+        className={cn(
+          "flex flex-wrap items-baseline justify-between gap-3",
+          showIntro ? "mb-1" : "mb-5",
+        )}
+      >
+        <span className="flex items-baseline gap-1">
+          <h2 className="font-display text-xl font-semibold tracking-tight">Sounds</h2>
+          <button
+            type="button"
+            onClick={() => setShowIntro((v) => !v)}
+            aria-expanded={showIntro}
+            aria-label={showIntro ? "Hide what this section is" : "What is this section?"}
+            className="text-ash hover:text-ink -m-1 p-1 transition-colors"
+          >
+            <CaretRight
+              size={12}
+              weight="bold"
+              aria-hidden="true"
+              className={cn("transition-transform duration-200", showIntro && "rotate-90")}
+            />
+          </button>
+        </span>
         <p className="text-ash font-mono text-[11px]">
           base {Math.round(set.baseHz)} Hz · 11 sounds
         </p>
       </div>
-      <p className="text-ash mb-5 max-w-[62ch] text-sm leading-relaxed">
-        Press <Play size={11} weight="fill" className="text-ink inline" /> to hear a sound, or
-        click its name to open it and change how it sounds. Every sound is derived from one base
-        frequency, so editing one keeps the rest in tune with it.
-      </p>
+      {showIntro && (
+        <p className="text-ash mb-5 max-w-[62ch] text-sm leading-relaxed">
+          Press <Play size={11} weight="fill" className="text-ink inline" /> to hear a sound, or
+          click its name to open it and change how it sounds. Every sound is derived from one base
+          frequency, so editing one keeps the rest in tune with it.
+        </p>
+      )}
 
       <ul className="border-line divide-line divide-y border-t border-b">
         {set.sounds.map((sound) => (

@@ -153,7 +153,11 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     id: "soft",
     name: "Soft",
     blurb: "Rounded, low, unhurried. Nothing sharp, so it survives being heard all day.",
-    suits: "the safe default",
+    // Was "the safe default", which stopped being true when warm took the
+    // default. It is still the most neutral thing here — which is what makes it
+    // the best base to edit from, and the reason it is not the first thing a
+    // visitor hears.
+    suits: "the neutral base to build from",
     // 720 Hz rather than 880: warmer, and still high enough that `delete`'s
     // octave drop lands near 360 Hz instead of inside the small-speaker
     // rolloff.
@@ -508,12 +512,21 @@ export const PRESETS: Record<PresetId, PresetDef> = {
   },
 }
 
-/** Ordered restrained → expressive, which is how the dropdown reads. */
+/**
+ * The default leads; the rest run restrained → expressive.
+ *
+ * `warm` is first and is the default because it is the one that sounds most
+ * like a finished product straight away — the set someone would ship without
+ * touching. `soft` is the quieter, more neutral starting point, which is a
+ * better *base to edit from* than a first impression: a near-sine set is the
+ * hardest to tell apart from no character at all, and the landing page has one
+ * chance to demonstrate that this tool makes sounds worth using.
+ */
 export const PRESET_IDS: PresetId[] = [
+  "warm",
   "soft",
   "minimal",
   "crisp",
-  "warm",
   "bloopy",
   "glassy",
   "playful",
@@ -521,7 +534,12 @@ export const PRESET_IDS: PresetId[] = [
   "scifi",
 ]
 
-export const DEFAULT_PRESET: PresetId = "soft"
+/**
+ * Changing this changes what a bare `beeps.studio/` returns, which is a public
+ * surface — the `p` table in `public/llms.txt` and the parameter block in
+ * `src/lib/export.ts` both name the default and must move with it.
+ */
+export const DEFAULT_PRESET: PresetId = "warm"
 
 export function isPresetId(v: string): v is PresetId {
   return Object.prototype.hasOwnProperty.call(PRESETS, v)

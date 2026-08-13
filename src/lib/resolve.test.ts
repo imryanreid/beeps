@@ -496,7 +496,10 @@ describe("the duration budget", () => {
     // moved on their own.
     const set = resolve({ presetId: "soft", deltas: { tap: { attackMs: 20 } } })
     const tap = set.sounds.find((s) => s.id === "tap")!
-    const plain = resolve(DEFAULT_CONFIG).sounds.find((s) => s.id === "tap")!
+    // Both sides pinned to the same preset. This is an edited-vs-unedited
+    // comparison, so the baseline has to be the same character — DEFAULT_CONFIG
+    // would silently make it a cross-preset diff if the default ever moves.
+    const plain = resolve({ presetId: "soft", deltas: {} }).sounds.find((s) => s.id === "tap")!
 
     expect(tap.voices[0].env.attackMs).toBe(20)
     // Only the attack moved. Everything else held still.
@@ -510,7 +513,7 @@ describe("the duration budget", () => {
     // A milder version of the same bug: the glide used to derive from the
     // whole envelope, so raising the attack visibly moved a slider nobody had
     // touched. It derives from decay + release instead.
-    const plain = resolve(DEFAULT_CONFIG).sounds.find((s) => s.id === "tap")!
+    const plain = resolve({ presetId: "soft", deltas: {} }).sounds.find((s) => s.id === "tap")!
     const edited = resolve({
       presetId: "soft",
       deltas: { tap: { attackMs: 24 } },
@@ -599,7 +602,7 @@ describe("frequency safety", () => {
 describe("deltas", () => {
   it("changes only the sound it names", () => {
     const set = resolve({ presetId: "soft", deltas: { tap: { decayMs: 300 } } })
-    const untouched = resolve(DEFAULT_CONFIG)
+    const untouched = resolve({ presetId: "soft", deltas: {} })
     expect(set.sounds.find((s) => s.id === "tap")!.voices[0].env.decayMs).toBe(300)
     expect(set.sounds.find((s) => s.id === "open")!.durationMs).toBe(
       untouched.sounds.find((s) => s.id === "open")!.durationMs,

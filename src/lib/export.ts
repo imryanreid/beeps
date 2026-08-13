@@ -368,7 +368,7 @@ export function toAgentMarkdown(set: SoundSet, url: string, warnings: string[] =
     "Every parameter is optional; with none you get the default preset.",
     "",
     "```",
-    "p    Character preset: soft | crisp | minimal. Default soft.",
+    "p    Character preset: warm | soft | minimal | crisp | bloopy | glassy | playful | retro | scifi. Default warm.",
     "b    Base frequency in Hz, 220-2000. All eleven sounds move with it.",
     "",
     '<sound>   One key per edited sound, fields separated by ".". The key is the',

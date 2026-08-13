@@ -148,16 +148,19 @@ export default function App() {
               onChange={setPreset}
             />
           </div>
-          <p className="text-ash max-w-[46ch] pb-2 text-sm leading-relaxed">
-            {editCount > 0 ? (
-              <>
-                {editCount} sound{editCount === 1 ? "" : "s"} edited on top of{" "}
-                <span className="text-ink">{preset.name}</span>. {preset.blurb}
-              </>
-            ) : (
-              preset.blurb
-            )}
-          </p>
+          {/*
+            The preset's blurb is in the dropdown, on every option — repeating
+            it here described the choice you already made, next to the control
+            that made it. What is NOT anywhere else is the edit count, so that
+            is all this says now, and it disappears when there is nothing to
+            count.
+          */}
+          {editCount > 0 && (
+            <p className="text-ash max-w-[46ch] pb-2 text-sm leading-relaxed">
+              {editCount} sound{editCount === 1 ? "" : "s"} edited on top of{" "}
+              <span className="text-ink">{preset.name}</span>.
+            </p>
+          )}
         </div>
       }
       overlay={

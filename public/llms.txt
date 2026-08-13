@@ -48,7 +48,7 @@ The page itself takes the same parameters:
 
 | Param | Required | Values | Meaning |
 | --- | --- | --- | --- |
-| `p` | no | `soft` (default), `minimal`, `crisp`, `warm`, `bloopy`, `glassy`, `playful`, `retro`, `scifi` | The character preset. Applies to the whole set. |
+| `p` | no | `warm` (default), `soft`, `minimal`, `crisp`, `bloopy`, `glassy`, `playful`, `retro`, `scifi` | The character preset. Applies to the whole set. |
 | `b` | no | 220–2000 | Base frequency in Hz. Every sound is an interval from this, so moving it transposes the set and keeps it in tune. Omit to use the preset's own. |
 
 ### Per-sound parameters

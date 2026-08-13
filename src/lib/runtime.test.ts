@@ -109,7 +109,17 @@ class FakeContext {
 
 const fake = () => new FakeContext() as unknown as BaseAudioContext & FakeContext
 
-const set = resolve(DEFAULT_CONFIG)
+// Pinned to a single-voice preset ON PURPOSE, not left on the default.
+//
+// The graph and mute-gate tests below count nodes — "one voice reaches the
+// destination", "ten overlapping triggers stay ten". That is a statement about
+// routing and polyphony, not about character, and it only reads cleanly when a
+// sound is one oscillator. The default preset is `warm`, which carries FM, so
+// every sound resolves to a carrier plus a modulator and those counts turn into
+// multiples that say nothing about what is being tested. `soft` is the plainest
+// preset in the set; the layered cases are covered explicitly further down with
+// `presetId: "warm"`.
+const set = resolve({ presetId: "soft", deltas: {} })
 const soundBy = (id: string) => set.sounds.find((s) => s.id === id)!
 
 // ---------------------------------------------------------------------------
