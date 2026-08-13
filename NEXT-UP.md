@@ -8,11 +8,11 @@
 
 ## Current state
 
-**LIVE** at https://beeps-gamma.vercel.app — production deploy on Vercel
-(project `beeps`, repo https://github.com/imryanreid/beeps, public, MIT).
-`www.beeps.studio` and `beeps.studio` are attached to the project but **DNS
-still points at Squarespace**; the site goes live on the real domain the moment
-those records change. See "Blockers" below for the exact records.
+**LIVE at https://www.beeps.studio** — Vercel project `beeps`, repo
+https://github.com/imryanreid/beeps (public, MIT). DNS is configured, both
+certificates are issued, and the apex 308-redirects to `www` via
+`vercel.json` — matching ramps.studio and springs.studio, and version
+controlled rather than set in the dashboard so it cannot silently differ.
 
 Everything in the v1 scope works: the synth core, nine presets, the
 eleven-sound set, semantic pairing, FM, space, per-sound voices, rapid-fire
@@ -327,19 +327,16 @@ without checking.
 
 ## Known blockers / open
 
-- **DNS is the only thing between this and the real domain.** `beeps.studio`
-  is registered and its nameservers point at Squarespace. Both `beeps.studio`
-  and `www.beeps.studio` are already attached to the Vercel project, so the
-  site switches over the moment these records exist at Squarespace:
-
-  | Type | Host | Value |
-  | --- | --- | --- |
-  | `A` | `@` | `76.76.21.21` |
-  | `CNAME` | `www` | `cname.vercel-dns.com` |
-
-  `www` is canonical (matching ramps.studio and springs.studio), so the apex
-  should redirect to it — Vercel does that automatically once both resolve.
-  Verify with `vercel domains inspect www.beeps.studio`.
+- **The apex redirect is ours, not Vercel's.** Attaching both domains did NOT
+  produce a redirect — both spellings served 200 independently, which splits
+  the crawl and leaves the canonical tag pointing at one of two live URLs.
+  `vercel.json` now 308s `beeps.studio` to `www.beeps.studio`, preserving path
+  and query (share links depend on the query surviving). If a second domain is
+  ever added, it needs its own rule.
+- **`vercel domains inspect` still warns about nameservers.** Expected: the
+  domain is configured with A/CNAME records at Squarespace rather than by
+  delegating nameservers to Vercel. Both are supported; the warning is about
+  the path not taken, not a misconfiguration.
 - **Family prep is on branches, unpushed** — `family-prep-for-beeps` in both
   Ramps and Motion, carrying the shared `ExportPanel` binary channel, the
   missing sync scripts and the doc reconciliation.
