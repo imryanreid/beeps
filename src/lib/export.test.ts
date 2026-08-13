@@ -177,3 +177,60 @@ describe("native export", () => {
     expect(swift).toContain(set.sounds[0].id)
   })
 })
+
+// ---------------------------------------------------------------------------
+// Parity with the fetchable payload
+//
+// The markdown is the export a HUMAN is most likely to paste into an agent's
+// context, and it was the weakest surface this tool has: it stated the budget
+// rules but never whether this set broke them, and it could not tell an edited
+// set from a stock one. Both were already fixed in /api/sounds; these keep the
+// two from drifting apart again.
+// ---------------------------------------------------------------------------
+
+describe("the markdown reports what the set actually is", () => {
+  it("flags a sound past its tier ceiling, with the number and the fix", () => {
+    const long = resolve({ presetId: "soft", deltas: { tap: { decayMs: 700, releaseMs: 300 } } })
+    const md = toAgentMarkdown(long, URL_)
+    expect(md).toContain("## Budget check")
+    expect(md).toMatch(/`tap` is \d+ ms, past the 180 ms ceiling/)
+    expect(md).toContain("Shorten it")
+  })
+
+  it("says so plainly when nothing is out of budget", () => {
+    const md = toAgentMarkdown(set, URL_)
+    expect(md).toContain("All eleven sounds sit inside their tier's length budget.")
+  })
+
+  it("marks which sounds the link edited, and which it re-voiced", () => {
+    const config = {
+      presetId: "soft" as const,
+      deltas: { send: { attackMs: 4 } },
+      presets: { tap: "bloopy" as const },
+    }
+    const md = toAgentMarkdown(resolve(config), URL_, [], config)
+
+    const row = (id: string) => md.split("\n").find((l) => l.startsWith(`| \`${id}\``))!
+    expect(row("send")).toContain("attackMs")
+    expect(row("tap")).toContain("voice: bloopy")
+    // An untouched sound is explicitly marked as such, not left blank.
+    expect(row("error")).toContain("—")
+  })
+
+  it("leaves the Edited column dashed throughout when given no config", () => {
+    // The parameter is optional; without it the export must not imply edits.
+    const md = toAgentMarkdown(set, URL_)
+    for (const spec of SOUND_SPECS) {
+      const row = md.split("\n").find((l) => l.startsWith(`| \`${spec.id}\``))!
+      expect(row, spec.id).toContain("—")
+    }
+  })
+
+  it("describes how every sound behaves, in words", () => {
+    const md = toAgentMarkdown(set, URL_)
+    expect(md).toContain("## How each sound behaves")
+    for (const spec of SOUND_SPECS) {
+      expect(md, spec.id).toContain(`- \`${spec.id}\` —`)
+    }
+  })
+})

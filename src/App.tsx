@@ -166,7 +166,7 @@ export default function App() {
       overlay={
         exporting ? (
           <ExportModal onClose={() => setExporting(false)}>
-            <BeepsExport set={audio.set} url={shareUrl} warnings={warnings} />
+            <BeepsExport set={audio.set} url={shareUrl} warnings={warnings} config={config} />
           </ExportModal>
         ) : null
       }
@@ -195,7 +195,7 @@ export default function App() {
       />
 
       {/* Always in the DOM, like Ramps and Motion. See AgentData. */}
-      <AgentData set={audio.set} url={shareUrl} warnings={warnings} />
+      <AgentData set={audio.set} url={shareUrl} warnings={warnings} config={config} />
     </ToolShell>
   )
 }

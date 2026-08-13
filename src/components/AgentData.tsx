@@ -19,18 +19,21 @@ import { CaretRight } from "@phosphor-icons/react"
 import CopyText from "../shared/components/CopyText"
 import { cn } from "../shared/utils"
 import { toAgentMarkdown } from "../lib/export"
+import type { SetConfig } from "../lib/resolve"
 import type { SoundSet } from "../lib/sounds"
 
 export default function AgentData({
   set,
   url,
   warnings,
+  config,
 }: {
   set: SoundSet
   url: string
   warnings: string[]
+  config?: SetConfig
 }) {
-  const markdown = toAgentMarkdown(set, url, warnings)
+  const markdown = toAgentMarkdown(set, url, warnings, config)
 
   return (
     <details className="border-line group mt-12 rounded-lg border open:pb-4">

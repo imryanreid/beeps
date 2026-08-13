@@ -17,7 +17,14 @@
 import RUNTIME_SOURCE from "../runtime/beeps.js?raw"
 import { FAMILY_BLURB, FAMILY_NAME, familyAsText } from "../shared/tools"
 import { PRESETS, type PresetId } from "./presets.js"
-import { DURATION_BUDGET, frequencySpan, soundingMs } from "./resolve.js"
+import {
+  DURATION_BUDGET,
+  durationVerdict,
+  frequencySpan,
+  soundingMs,
+  type SetConfig,
+} from "./resolve.js"
+import { characterLine } from "./agent.js"
 import {
   PAIRS,
   SOUND_SPECS,
@@ -236,7 +243,13 @@ function intervalOf(set: SoundSet, id: SoundId): string {
     .join(", then ")
 }
 
-export function toAgentMarkdown(set: SoundSet, url: string, warnings: string[] = []): string {
+export function toAgentMarkdown(
+  set: SoundSet,
+  url: string,
+  warnings: string[] = [],
+  /** Optional: what the link actually set, so the export can mark overrides. */
+  config?: SetConfig,
+): string {
   const lines: string[] = []
 
   if (warnings.length) {
@@ -261,15 +274,20 @@ export function toAgentMarkdown(set: SoundSet, url: string, warnings: string[] =
     "",
     "## Sounds",
     "",
-    "| Sound | Tier | ms | Interval | When to play it | When NOT to |",
-    "| --- | --- | --- | --- | --- | --- |",
+    "| Sound | Tier | ms | Interval | Edited | When to play it | When NOT to |",
+    "| --- | --- | --- | --- | --- | --- | --- |",
   )
 
   for (const spec of SOUND_SPECS) {
     const sound = set.sounds.find((s) => s.id === spec.id)
     if (!sound) continue
+    // What this link changed, if anything. Without it the only way to tell an
+    // edited set from a stock one is to generate the default and diff by hand.
+    const voice = config?.presets?.[spec.id]
+    const fields = config?.deltas?.[spec.id] ? Object.keys(config.deltas[spec.id]!).sort() : []
+    const edited = [voice ? `voice: ${voice}` : "", fields.join(", ")].filter(Boolean).join("; ")
     lines.push(
-      `| \`${spec.id}\` | ${spec.tier} | ${Math.round(soundingMs(sound))} | ${intervalOf(set, spec.id)} | ${spec.when} | ${spec.whenNot} |`,
+      `| \`${spec.id}\` | ${spec.tier} | ${Math.round(soundingMs(sound))} | ${intervalOf(set, spec.id)} | ${edited || "—"} | ${spec.when} | ${spec.whenNot} |`,
     )
   }
 
@@ -278,6 +296,37 @@ export function toAgentMarkdown(set: SoundSet, url: string, warnings: string[] =
     "The *When NOT to* column is the important one. The failure mode of UI sound is",
     "not a bad sound — it is a good sound played too often. Wiring these to every",
     "event you can find is how an interface becomes something people mute.",
+    "",
+  )
+
+  // Whether THIS set obeys the budgets, not just what the budgets are. The page
+  // flags these in amber; an exported document that stayed quiet about them was
+  // the weakest surface this tool has, and the one most likely to be pasted
+  // into an agent's context by a human who trusts it.
+  const over = set.sounds.filter((s) => durationVerdict(s) !== "ok")
+  lines.push("## Budget check", "")
+  if (!over.length) {
+    lines.push("All eleven sounds sit inside their tier's length budget.", "")
+  } else {
+    for (const s of over) {
+      const b = DURATION_BUDGET[s.tier]
+      const ms = Math.round(soundingMs(s))
+      lines.push(
+        durationVerdict(s) === "long"
+          ? `- **\`${s.id}\` is ${ms} ms, past the ${b.maxMs} ms ceiling for \`${s.tier}\`.** Shorten it or move it to a louder tier.`
+          : `- **\`${s.id}\` is ${ms} ms, under the ${b.minMs} ms floor for \`${s.tier}\`.** Below that the ear reads it as quieter rather than subtler, and turning it up will not fix that.`,
+      )
+    }
+    lines.push("")
+  }
+
+  lines.push("## How each sound behaves", "")
+  for (const spec of SOUND_SPECS) {
+    const sound = set.sounds.find((s) => s.id === spec.id)
+    if (!sound) continue
+    lines.push(`- \`${spec.id}\` — ${characterLine(sound)}`)
+  }
+  lines.push(
     "",
     "## Requirements",
     "",

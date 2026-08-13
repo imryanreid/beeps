@@ -18,6 +18,7 @@ import ExportPanel, { type ExportFormat } from "../shared/components/ExportPanel
 import { toAgentMarkdown, toJson, toJs, toNative } from "../lib/export"
 import { canRender, encodeSound, type EncodedSound } from "../lib/render"
 import { SOUND_IDS, type SoundId, type SoundSet } from "../lib/sounds"
+import type { SetConfig } from "../lib/resolve"
 
 const KB = (bytes: number) => `${(bytes / 1024).toFixed(1)} KB`
 
@@ -25,10 +26,12 @@ export default function BeepsExport({
   set,
   url,
   warnings,
+  config,
 }: {
   set: SoundSet
   url: string
   warnings: string[]
+  config?: SetConfig
 }) {
   const [soundId, setSoundId] = useState<SoundId>("tap")
   const [encoded, setEncoded] = useState<EncodedSound | null>(null)
@@ -144,7 +147,7 @@ export default function BeepsExport({
       label: "Markdown",
       filename: "ui-sounds.md",
       mime: "text/markdown",
-      render: () => toAgentMarkdown(set, url, warnings),
+      render: () => toAgentMarkdown(set, url, warnings, config),
       fidelity: {
         summary: "Carries intent, not just parameters",
         detail:

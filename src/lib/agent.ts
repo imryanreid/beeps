@@ -52,7 +52,7 @@ const INTERVALS = [
  * transient" is the difference between an agent measuring a set and being able
  * to describe it.
  */
-function characterLine(s: Sound): string {
+export function characterLine(s: Sound): string {
   const osc = s.voices.find((v) => v.kind === "osc")
   const parts: string[] = []
 
