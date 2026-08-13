@@ -10,6 +10,13 @@
       content="Generate a coherent set of interface sounds — tap, toggle, success, error, notification and more — synthesized in the browser with Web Audio. No sample library, no hosted audio, no licensing. Exports as WAV, an inline data URI, a zero-dependency synthesis function, JSON, or markdown that tells a coding agent when to play what."
     />
     <link rel="canonical" href="https://www.beeps.studio/" />
+    <!--
+      Advertises the machine-readable form to anything that parses the head but
+      does not run scripts. Redundant now that middleware serves the set on "/"
+      itself, and kept anyway: it is one line, it is the standard discovery
+      mechanism, and it survives if the middleware is ever removed.
+    -->
+    <link rel="alternate" type="application/json" href="/api/sounds" title="The sound set as JSON" />
     <meta name="robots" content="index, follow" />
     <meta name="author" content="Ryan Reid" />
     <meta name="theme-color" content="#fdfdfc" media="(prefers-color-scheme: light)" />
