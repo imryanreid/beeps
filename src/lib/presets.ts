@@ -1,6 +1,6 @@
 // ==============================================
 // CHARACTER PRESETS
-// Ten of them, as plain data.
+// Nine of them, as plain data.
 //
 // A preset applies to the WHOLE set: base frequency,
 // envelope shape, filter, noise, per-tier gain and
@@ -16,9 +16,7 @@
 // for warmth, an inharmonic partial for glass, a fifth
 // for the sci-fi stack. Without them, Glassy is Soft
 // with a brighter filter. With them, it is a struck
-// rim — and Xylophone, which differs from it mostly in
-// where its partial sits, is a different instrument
-// entirely.
+// rim.
 //
 // Nothing here is a code branch, and nothing anywhere
 // branches on a preset id. A tenth preset is a tenth
@@ -37,7 +35,6 @@ export type PresetId =
   | "warm"
   | "bloopy"
   | "glassy"
-  | "xylophone"
   | "playful"
   | "retro"
   | "scifi"
@@ -286,7 +283,7 @@ export const PRESETS: Record<PresetId, PresetDef> = {
         interval: 0, waveform: "sine", gain: 1,
         // Half the note's frequency, putting sidebands BELOW it as well as
         // above — the underwater weight this preset is named for.
-        fm: { ratio: 0.5, index: 2.2, decay: 0.7 },
+        fm: { ratio: 0.5, index: 1.6, decay: 0.7 },
       },
       { interval: 12, waveform: "sine", gain: 0.18, tail: 0.7 },
     ],
@@ -302,7 +299,10 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     sweepShare: 0.42,
     glide: "smooth",
     filterType: "lowpass",
-    filterCutoffHz: 720,
+    // 1000, not 720. The old cutoff sat essentially ON the fundamental —
+    // 700 Hz base against a 720 Hz cutoff — so the filter was attenuating
+    // the note itself rather than what sits above it. That is the mud.
+    filterCutoffHz: 1000,
     filterQ: 3.5,
     noise: null,
     gain: { subtle: 0.2, notable: 0.3, alert: 0.38 },
@@ -346,8 +346,10 @@ export const PRESETS: Record<PresetId, PresetDef> = {
       { interval: 14.5, waveform: "sine", gain: 0.075, tail: 0.9 },
     ],
     // Fast enough to be struck, not so fast it clicks. 2 ms is 1.8 cycles at
-    // this base — see Xylophone's attack note for why cycles are the unit that
-    // matters.
+    // this base. What matters is not the millisecond figure but how many CYCLES
+    // of its own note the onset covers: a struck object reaches full amplitude
+    // inside one, and at 6 ms this preset was taking four to ten depending on
+    // the note, which reads as a swell rather than a strike.
     attackMs: 2,
     // The longest envelope in the set, and the identity of the preset. Glass
     // rings; that is what it does. This is as long as the duration budget
@@ -371,114 +373,6 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     noise: null,
     gain: { subtle: 0.15, notable: 0.24, alert: 0.32 },
     envScale: { subtle: 0.4, notable: 1.0, alert: 1.5 },
-  },
-
-  xylophone: {
-    id: "xylophone",
-    name: "Xylophone",
-    // Named for what it is rather than what it was aiming at. A xylophone bar
-    // is undercut until its first overtone sits exactly a twelfth above the
-    // note — three times the fundamental — and that is precisely the `19`
-    // layer below. Struck, harmonic, gone quickly. It spent a while called
-    // Glassy and kept being described as metallic, sharp, xylophone-ish,
-    // because it was a xylophone the whole time.
-    blurb: "Struck bars. A twelfth rings above every note and is gone before the note is.",
-    suits: "playful products that still need to feel precise",
-    baseHz: 760,
-    // The partials are SHORTER than the note, not longer, and that inversion is
-    // the whole difference between glass and metal.
-    //
-    // They used to be longer — 1.5 and 1.9, raised deliberately so this would
-    // "ring properly as a bell". It worked, and that was the bug: a bell IS
-    // metal. Measured, those settings doubled the sound's spectral centroid
-    // between its opening quarter and its closing third (988 Hz -> 2137 Hz on
-    // `tap`, against 761 -> 834 for Soft), because the fundamental died first
-    // and left the upper partials sounding alone. A sound that gets BRIGHTER as
-    // it decays is a struck bell, every time.
-    //
-    // Struck glass does the reverse: a bright onset whose high partials fade
-    // faster than the note beneath them. So the shimmer is louder and brief,
-    // and what is left ringing is the note itself — which is also the "clarity"
-    // that was missing, since the thing carrying the sound's identity was the
-    // first thing to disappear.
-    //
-    // The waveforms are all sines and the filter is flat, which help but only
-    // barely: measured, swapping the two triangles out and dropping Q from 2.5
-    // moved the centroid 1041 Hz -> 983 Hz, about 6%. Triangle harmonics fall
-    // off as 1/n-squared and the lowpass had already removed most of what was
-    // left. Worth keeping, not worth mistaking for the fix.
-    layers: [
-      {
-        interval: 0, waveform: "sine", gain: 1,
-        // A short, high, inharmonic burst: the mallet hitting, gone inside a
-        // tenth of the decay. The bars themselves are the layers below.
-        fm: { ratio: 5.6, index: 3.5, decay: 0.12 },
-      },
-      { interval: 12, waveform: "sine", gain: 0.42, tail: 0.55 },
-      // The twelfth is quiet on purpose. An octave reinforces the note under
-      // it; a twelfth is a fifth, a NEW pitch class, and at any strength it
-      // reads as tin rather than as glass. It is here for the sparkle in the
-      // first few milliseconds, not to be heard as a note of its own.
-      // Loud at the strike and gone almost immediately — 0.28 with a 0.4 tail,
-      // not the 0.1 it was cut to. Quiet partials are what made this muffled;
-      // it was LONG partials that made it tinny, and those are two different
-      // settings. The tail is what keeps them apart.
-      { interval: 19, waveform: "sine", gain: 0.28, tail: 0.4 },
-    ],
-    // 1.5 ms, down from 6, and this is the setting that made most of the set
-    // sound underwater.
-    //
-    // What matters is not the millisecond figure but how many CYCLES of its own
-    // note the onset covers: a struck object reaches full amplitude inside one.
-    // At 6 ms this preset took 4.6 cycles at its base and 10.2 on
-    // `notification` at 1706 Hz — a swell, not a strike, and a swelled sine is
-    // exactly what "underwater" describes. `delete` was the exception for the
-    // same reason it was the exception twice before: it lands lowest, at 380 Hz,
-    // where 6 ms is only 2.3 cycles. The set's attack was a fixed number of
-    // milliseconds across sounds spanning more than two octaves, so how struck
-    // each one sounded varied fourfold.
-    //
-    // 1.5 ms is under one cycle at the bottom of the set and 2.6 at the top,
-    // which is inside "struck" everywhere.
-    attackMs: 1.5,
-    // Longer than they were, because the ring that used to carry this preset's
-    // length is gone: the partials now fade BEFORE the note instead of after
-    // it, which took `toggle.on` down to 68 ms — under the floor where the ear
-    // stops integrating. The length has to come from the note itself now.
-    decayMs: 116,
-    sustain: 0,
-    releaseMs: 88,
-    // At 0.45 every contour in the set compressed
-    // almost to flat and shape stopped telling sounds apart here at all — the
-    // character is carried by the partial stack now, so this does not have to
-    // hold still to earn it.
-    sweepScale: 0.7,
-    intrinsicSweep: 0.8,
-    sweepShare: 0.16,
-    glide: "smooth",
-    filterType: "lowpass",
-    // Open, and flat. A Q of 2.5 built a resonant bump around the cutoff, and a
-    // resonant peak on top of dense partials is the other half of why this read
-    // as metal. Nothing here should be emphasised over anything else — the
-    // partials are the character, so the filter's job is to stay out of the way.
-    // 3200, down from 5200. Well above the twelfth at this preset's base, so it
-    // rounds the partials off rather than removing them.
-    //
-    // A pitch-tracking cutoff was tried here and reverted. Holding the ratio of
-    // cutoff to note constant across the set sounded like the explanation for
-    // why the low sounds kept their sparkle and the high ones did not, and it
-    // measured as a change of under 3.5 dB in the partials, in no consistent
-    // direction — these partials are short enough that the filter has very
-    // little of them to act on. What actually made the set sound muffled was
-    // the attack. See below.
-    filterCutoffHz: 3200,
-    filterQ: 0.7,
-    noise: null,
-    // A small bright room. Struck bars are almost always heard in one, and
-    // dry they sound like a sample rather than an object.
-    space: { delayMs: 18, feedback: 0.26, mix: 0.3, dampingHz: 5000 },
-    gain: { subtle: 0.16, notable: 0.26, alert: 0.34 },
-    envScale: { subtle: 0.42, notable: 1.0, alert: 1.35 },
   },
 
   playful: {
@@ -511,8 +405,10 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     filterCutoffHz: 3200,
     filterQ: 1.5,
     noise: null,
-    // A slap, not a wash — it should bounce.
-    space: { delayMs: 20, feedback: 0.26, mix: 0.32, dampingHz: 4000 },
+    // The longest delay of the three, with the LEAST feedback: long enough
+    // that you hear the repeat as a discrete bounce rather than as ambience,
+    // and shallow enough that it bounces once and stops.
+    space: { delayMs: 30, feedback: 0.18, mix: 0.34, dampingHz: 5000 },
     gain: { subtle: 0.22, notable: 0.34, alert: 0.44 },
     envScale: { subtle: 0.45, notable: 1.0, alert: 1.6 },
   },
@@ -543,9 +439,10 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     filterCutoffHz: 6000,
     filterQ: 0.5,
     noise: { amount: 0.15, decayMs: 12 },
-    // Tight and bright, the way a chip delay line was: too short to hear as
-    // a repeat, long enough to hear as a machine.
-    space: { delayMs: 14, feedback: 0.25, mix: 0.26, dampingHz: 6000 },
+    // The shortest delay and the most feedback, with almost no damping — it
+    // sits right against your ear and stays bright the whole way down. A chip
+    // delay line, not a room.
+    space: { delayMs: 11, feedback: 0.34, mix: 0.3, dampingHz: 9000 },
     gain: { subtle: 0.2, notable: 0.3, alert: 0.4 },
     envScale: { subtle: 0.66, notable: 1.0, alert: 1.7 },
   },
@@ -553,15 +450,22 @@ export const PRESETS: Record<PresetId, PresetDef> = {
   scifi: {
     id: "scifi",
     name: "Sci-Fi",
-    blurb: "Zaps. Sawtooth stacked in fifths, plunging through a resonant filter.",
+    blurb: "Zaps. A modulated core under a sawtooth fifth, plunging through a resonant filter.",
     suits: "games, dashboards, anything that wants to feel like a console",
     baseHz: 820,
     layers: [
       {
-        interval: 0, waveform: "sawtooth", gain: 1,
-        // Deep and inharmonic. This is the clang the resonant filter sweeps
-        // through; a saw alone had buzz but no metal.
-        fm: { ratio: 2.4, index: 5, decay: 0.55 },
+        interval: 0, waveform: "sine", gain: 1,
+        // A SINE carrier, which is not a detail — it is the whole reason this
+        // stopped being crunchy. FM's clean sideband structure assumes one: a
+        // sawtooth already contains every harmonic, so each one spawns its own
+        // sideband family and they intermodulate into noise rather than into a
+        // timbre. Measured on `tap`, flatness ran 0.251 for the dry saw and
+        // 0.450 with FM on top of it — most of the way to white noise, and
+        // exactly the "crunchy and bleh" it sounded like. The same index on a
+        // sine reads 0.212: rich, metallic, still a tone. The sawtooth fifth
+        // below is where the buzz lives now.
+        fm: { ratio: 2.4, index: 4, decay: 0.55 },
       },
       { interval: 7, waveform: "sawtooth", gain: 0.4 },
     ],
@@ -584,11 +488,22 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     // resonant sweep is what reads as "energy weapon" rather than "buzz".
     filterQ: 8.0,
     noise: { amount: 0.2, decayMs: 10 },
-    // The biggest room in the set, and the one place a repeat is welcome.
-    // Sized by the SUBTLE tier, which is what binds: `open` is barely 100 ms
-    // dry, so the room it trails cannot be much longer than that again.
-    space: { delayMs: 20, feedback: 0.28, mix: 0.34, dampingHz: 2600 },
-    gain: { subtle: 0.2, notable: 0.32, alert: 0.42 },
+    // The wettest and by far the darkest: 1400 Hz of damping puts it at a
+    // distance, where Retro's 9000 sits against your ear. Same mechanism,
+    // opposite end of every parameter.
+    //
+    // All three rooms are sized by the SUBTLE tier, which is what binds —
+    // `open` is barely 100 ms dry, so its tail cannot be much longer again.
+    // That is also why no calm preset has one: Soft, Warm, Bloopy and Glassy
+    // are the long ones, and a long sound leaves no budget for a tail. Rooms
+    // cluster on the lively end for a structural reason, not a stylistic one,
+    // which is why they have to differ hard from each other.
+    space: { delayMs: 22, feedback: 0.22, mix: 0.42, dampingHz: 1400 },
+    // Lower than the others on purpose. A 0.42 wet mix stacks the room's
+    // energy on top of the dry signal, and at the old levels the raw render
+    // reached 0.997 before normalization had a chance to act — no headroom
+    // left for it to work with.
+    gain: { subtle: 0.16, notable: 0.26, alert: 0.34 },
     envScale: { subtle: 0.45, notable: 1.0, alert: 1.7 },
   },
 }
@@ -601,7 +516,6 @@ export const PRESET_IDS: PresetId[] = [
   "warm",
   "bloopy",
   "glassy",
-  "xylophone",
   "playful",
   "retro",
   "scifi",

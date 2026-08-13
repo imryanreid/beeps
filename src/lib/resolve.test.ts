@@ -475,7 +475,7 @@ describe("the duration budget", () => {
     expect(Math.max(...ratios) / Math.min(...ratios)).toBeGreaterThan(3)
     // Retro and Crisp cut off abruptly; Glassy and Bloopy hang on.
     expect(PRESETS.retro.decayMs / PRESETS.retro.releaseMs).toBeGreaterThan(5)
-    expect(PRESETS.xylophone.decayMs / PRESETS.xylophone.releaseMs).toBeLessThan(2)
+    expect(PRESETS.bloopy.decayMs / PRESETS.bloopy.releaseMs).toBeLessThan(2)
   })
 
   it("still orders the tiers by length after that cap", () => {
@@ -772,10 +772,10 @@ describe("the three axes", () => {
 
 describe("preset layers — the thing that makes presets instruments", () => {
   it("expands every semantic note through the whole stack", () => {
-    // xylophone is three layers; success is two notes. Six oscillators, not two.
-    const success = soundIn("xylophone", "success")
+    // warm is three layers; success is two notes. Six oscillators, not two.
+    const success = soundIn("warm", "success")
     const osc = success.voices.filter((v) => v.kind === "osc")
-    expect(osc).toHaveLength(PRESETS.xylophone.layers.length * 2)
+    expect(osc).toHaveLength(PRESETS.warm.layers.length * 2)
   })
 
   it("normalises the stack, so a three-layer preset is not three times louder", () => {
@@ -792,10 +792,10 @@ describe("preset layers — the thing that makes presets instruments", () => {
   })
 
   it("places layers at their stated interval above the note", () => {
-    const tap = soundIn("xylophone", "tap")
+    const tap = soundIn("warm", "tap")
     const osc = tap.voices.filter((v) => v.kind === "osc")
     if (osc[0].kind !== "osc") throw new Error("expected osc")
-    for (const [i, layer] of PRESETS.xylophone.layers.entries()) {
+    for (const [i, layer] of PRESETS.warm.layers.entries()) {
       const v = osc[i]
       if (v.kind !== "osc") throw new Error("expected osc")
       const semis = Math.log2(v.pitch.endHz / osc[0].pitch.endHz) * 12
@@ -840,7 +840,7 @@ describe("preset layers — the thing that makes presets instruments", () => {
   })
 
   it("tags each voice with its layer, so the editor addresses the note", () => {
-    const tap = soundIn("xylophone", "tap")
+    const tap = soundIn("warm", "tap")
     const osc = tap.voices.filter((v) => v.kind === "osc")
     expect(osc.map((v) => (v.kind === "osc" ? v.layer : -1))).toEqual([0, 1, 2])
   })

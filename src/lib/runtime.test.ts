@@ -318,21 +318,21 @@ describe("the player, and the mute gate", () => {
   })
 
   it("counts SOUNDS against the cap, not oscillators", () => {
-    // A layered preset is many nodes per play — Xylophone's `success` is six
+    // A layered preset is many nodes per play — Warm's `success` is six
     // oscillators plus a noise burst. Capping raw nodes would have cut
     // rapid-fire off after two plays on exactly the presets with the most
     // going on, which is the opposite of what that test is for.
-    const xylophone = resolve({ presetId: "xylophone", deltas: {} })
+    const layered = resolve({ presetId: "warm", deltas: {} })
     const config = {
-      baseHz: xylophone.baseHz,
-      sounds: Object.fromEntries(xylophone.sounds.map((s) => [s.id, s])),
+      baseHz: layered.baseHz,
+      sounds: Object.fromEntries(layered.sounds.map((s) => [s.id, s])),
     }
     const ctx = fake()
     const beeps = createBeeps(config, { context: ctx })
     beeps.enable()
     for (let i = 0; i < 10; i++) beeps.play("success")
 
-    const perPlay = xylophone.sounds.find((s) => s.id === "success")!.voices.length
+    const perPlay = layered.sounds.find((s) => s.id === "success")!.voices.length
     expect(perPlay).toBeGreaterThan(4)
     // All ten plays got through; none was stopped early.
     const stoppedEarly = ctx.oscillators.filter((o) => o.stopped === ctx.currentTime)
