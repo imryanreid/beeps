@@ -8,6 +8,12 @@
 
 ## Current state
 
+**LIVE** at https://beeps-gamma.vercel.app — production deploy on Vercel
+(project `beeps`, repo https://github.com/imryanreid/beeps, public, MIT).
+`www.beeps.studio` and `beeps.studio` are attached to the project but **DNS
+still points at Squarespace**; the site goes live on the real domain the moment
+those records change. See "Blockers" below for the exact records.
+
 **v1 feature-complete, not yet deployed.** Everything in the v1 scope works:
 the synth core, three presets, the eleven-sound set, semantic pairing,
 rapid-fire preview, URL state, the per-sound editor with the spectrum rail, and
@@ -237,6 +243,33 @@ answer first:
   checking either glide was audible — 26 ms vs 7 ms is a big ratio between two
   pitch jumps. It now requires the longer glide to clear 25 ms, which
   immediately surfaced a second real collision (`tap`/`toggle.off`).
+
+### 2026-08-13 — public, deployed, on its own identity
+
+Repo created and pushed, Vercel project linked, production deploy Ready, both
+domains attached. Adds `src/lib/site.ts`, the canonical / og: / JSON-LD block,
+`robots.txt`, `sitemap.xml`, `llms.txt`, and icons — the favicon is a decaying
+oscillation (an envelope, which is what this tool makes) on the family plate,
+with `scripts/build-icons.py` rendering the PNG fallbacks from that same shape
+in pure stdlib, matching Ramps.
+
+**Nothing upstream changed**, by request. The shared manifest still carries
+Beeps as `status: "soon"` with no `domain`, so ramps.studio and springs.studio
+go on showing it as unreleased. That reads correctly on this site too — the
+shared directory already renders the tool you are ON as current rather than as
+"soon". The one thing that reads wrong until the upstream flip is
+`familyAsText()` listing Beeps as "not yet released" in the exported agent
+markdown, on its own live site.
+
+**A false claim caught by the right check.** `llms.txt`, `robots.txt` and the
+JSON-LD all said a no-JavaScript fetch returns the complete set. It does not —
+this is a client-rendered page and the served HTML is 6.3 KB of shell. All
+three were written from Ramps' pattern, and Ramps can say it because it has the
+middleware and `/api/palette`. `CLAUDE.md` warned about exactly this: *"verify
+with a real no-JavaScript fetch — a browser check proves nothing there."* The
+browser check passed, because in a browser the claim is true. Corrected before
+anyone read it; `llms.txt` is the one document an agent is entitled to trust
+without checking.
 
 ## Next
 
