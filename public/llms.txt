@@ -18,8 +18,14 @@ exact inversions of each other, and loudness is normalized across the set.
 
 ## Using this as a tool
 
-Build a URL. The page returns the whole set as plain text, with no JavaScript
-required — fetching it is enough.
+Build a URL. The page renders the whole set as plain text in the DOM, so a
+browser or a headless agent that runs JavaScript can read it directly.
+
+**If you do not run JavaScript**, fetching the page gets you the shell and this
+file — no sound data. Everything you need to construct a set is documented
+below, and the parameters are readable and hand-writable on purpose. A plain
+no-JavaScript endpoint is the next thing being built here; until it exists,
+this file is the contract.
 
 - `https://www.beeps.studio/` — the default set
 - `https://www.beeps.studio/?p=crisp` — a different character

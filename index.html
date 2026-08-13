@@ -48,6 +48,11 @@
       Machine-readable, and deliberately specific about the part that matters:
       this tool is meant to be handed to a coding agent, so the description
       says what it exports and llms.txt documents the URL API.
+
+      It does NOT claim a no-JavaScript fetch returns the set, because it does
+      not — this is a client-rendered page and the served HTML is the shell.
+      Ramps can make that claim because it has the middleware and /api to back
+      it; those are still to build here. See NEXT-UP.
     -->
     <script type="application/ld+json">
       {
@@ -57,7 +62,7 @@
         "url": "https://www.beeps.studio/",
         "applicationCategory": "DesignApplication",
         "operatingSystem": "Any (web browser)",
-        "description": "Built to be handed to a coding agent: the homepage returns the complete sound set as plain text without JavaScript, and /llms.txt documents every parameter and every sound. Generates a coherent set of eleven interface sounds — tap, toggle on and off, open, close, send, receive, success, error, notification and delete — synthesized in the browser with Web Audio rather than sampled, so there is no audio to host and nothing to license. Every sound is derived from one base frequency, paired sounds invert by construction, and loudness is normalized across the set. Exports to WAV, an inline data URI, a zero-dependency synthesis function, JSON, or markdown that tells an agent when each sound should and should not play.",
+        "description": "Built to be handed to a coding agent: /llms.txt documents every parameter and every sound, and the page renders the complete set as plain text in the DOM. Generates a coherent set of eleven interface sounds — tap, toggle on and off, open, close, send, receive, success, error, notification and delete — synthesized in the browser with Web Audio rather than sampled, so there is no audio to host and nothing to license. Every sound is derived from one base frequency, paired sounds invert by construction, and loudness is normalized across the set. Exports to WAV, an inline data URI, a zero-dependency synthesis function, JSON, or markdown that tells an agent when each sound should and should not play.",
         "isAccessibleForFree": true,
         "isPartOf": {
           "@type": "WebSite",
