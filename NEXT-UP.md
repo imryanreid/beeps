@@ -19,11 +19,11 @@ eleven-sound set, semantic pairing, FM, space, per-sound voices, rapid-fire
 preview, URL state, the per-sound editor with the spectrum rail, and all six
 exports. 166 tests. Builds clean and runs from `file://`.
 
-**Still to do:** the no-JavaScript agent surface (`middleware.ts` + `api/`), an
-OG card, and the upstream manifest flip — deliberately deferred until the tool
-is actually ready, so ramps.studio and springs.studio still show Beeps as
-"soon". The presets have had several rounds by ear but the newest numbers (FM
-indices, room sizes) are measured, not heard.
+**Shipped broadly.** `/api/sounds` serves the resolved set to non-JS agents as
+JSON or plain text, the OG card is live, and the manifest entry is flipped to
+`live` with a wordmark, a domain and a `sound` figure in ToolMark. The presets
+have had several rounds by ear but the newest numbers (FM indices, room sizes)
+are measured, not heard — see Next.
 
 ## Session log
 
@@ -272,6 +272,35 @@ with a real no-JavaScript fetch — a browser check proves nothing there."* The
 browser check passed, because in a browser the claim is true. Corrected before
 anyone read it; `llms.txt` is the one document an agent is entitled to trust
 without checking.
+
+### 2026-08-13 — shipped across the family
+
+- **Manifest flipped live** in Ramps (upstream): the `sound` entry gains
+  `wordmark`, `domain` and `status: "live"`, and its blurb stops promising a
+  motion-coupling the tool does not do. `ToolMark` gains a `sound` figure —
+  a decaying oscillation, the same relationship Motion's mark has to a spring's
+  step response. Its points are **copied** from `favicon.svg`, not redrawn:
+  transcribing them by hand produced a curve that diverged from the second
+  point on, which a check caught.
+- **`/api/sounds`** — the no-JavaScript surface, no new dependency. It exports a
+  plain `GET(request)` like Ramps' `api/palette.ts`, and the resolve graph was
+  already Node-clean because `src/lib` carries explicit `.js` extensions for
+  exactly this. It does **not** reuse `src/lib/export.ts`: that module reaches
+  the runtime through `?raw` (a Vite-only import) and its payload carries
+  `normalizedGain`, which only exists after a real render. The endpoint omits
+  that field and says why in the payload, rather than emitting a silent 1.
+- **OG card** — static 1200×630, drawn on canvas in the running app so the four
+  waveforms are the *real* rendered audio. See `scripts/build-og.md`.
+
+**Two gaps found while doing it, both worth remembering:**
+
+- **`api/` was never typechecked.** `tsconfig.json`'s `include` listed only
+  `src` and `vite.config.ts`, so `pnpm build` reported success on a file it had
+  never looked at — and that build is the entire verification gate now that
+  this ships straight to prod. Fixed.
+- **`?format=text` announced that the link had not arrived intact**, because
+  `decodeWarnings` reads any unrecognised parameter as one naming a missing
+  sound. It is the endpoint's own parameter, so it comes off before decoding.
 
 ## Next
 
