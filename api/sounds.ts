@@ -113,9 +113,18 @@ export function GET(request: Request): Response {
   // one case the clamps cannot: input hostile enough to throw. Falling back to
   // the default set is more useful to an agent than a 500, and it cannot leak
   // anything, because there is no state here to leak.
+  // `format` belongs to this endpoint, not to the sound contract, so it has to
+  // come off before decoding — left in, decodeWarnings reads it as a parameter
+  // naming a sound that does not exist and the response opens by announcing
+  // that the link did not arrive intact.
+  const params = new URLSearchParams(url.search)
+  const format = params.get("format")
+  params.delete("format")
+  const search = params.toString() ? `?${params}` : ""
+
   let data: ReturnType<typeof payload>
   try {
-    data = payload(url.search, origin)
+    data = payload(search, origin)
   } catch {
     data = payload("", origin)
   }
@@ -124,8 +133,7 @@ export function GET(request: Request): Response {
   // no Accept header at all gets JSON, which is the more useful default.
   const accept = request.headers.get("accept") ?? ""
   const wantsText =
-    url.searchParams.get("format") === "text" ||
-    (accept.includes("text/plain") && !accept.includes("application/json"))
+    format === "text" || (accept.includes("text/plain") && !accept.includes("application/json"))
 
   const body = wantsText ? asText(data) : JSON.stringify(data, null, 2)
 
