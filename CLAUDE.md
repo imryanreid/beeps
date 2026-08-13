@@ -175,9 +175,28 @@ do.
 
 ## Pushing
 
-Once this is live on a custom domain it follows the family rule: **branch, push,
-Vercel preview, Ryan looks, then merge.** Before a domain exists the rule is
-relaxed, as it was for Motion on its `*.vercel.app` placeholder.
+**Straight to production, every change.** Commit to `main`, push, deploy. No
+branch, no preview, no waiting to be looked at.
+
+This is a deliberate exception to the family rule — Ramps and Motion go
+branch → push → preview → Ryan looks → merge. Beeps is low-visibility, and the
+cost of a bad deploy here is a few minutes of a page nobody is watching, which
+is less than the cost of a preview round-trip on every change.
+
+What that exception buys is paid for by the gate below, so it is not optional
+any more — it is the only thing standing between a bad commit and a live site:
+
+```bash
+pnpm build && pnpm test && pnpm sync:check
+```
+
+And for anything touching audio, verify against the deployed URL rather than
+only localhost. `dist/` and the dev server can disagree — the no-JavaScript
+claim in `llms.txt` passed every browser check and was still false, because a
+browser runs the JavaScript that makes it true.
+
+If a deploy does go bad: `vercel rollback` promotes the previous production
+deployment immediately, which is faster than fixing forward.
 
 ## Ask before
 
