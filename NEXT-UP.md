@@ -19,11 +19,12 @@ eleven-sound set, semantic pairing, FM, space, per-sound voices, rapid-fire
 preview, URL state, the per-sound editor with the spectrum rail, and all six
 exports. 166 tests. Builds clean and runs from `file://`.
 
-**Shipped broadly.** `/api/sounds` serves the resolved set to non-JS agents as
-JSON or plain text, the OG card is live, and the manifest entry is flipped to
-`live` with a wordmark, a domain and a `sound` figure in ToolMark. The presets
-have had several rounds by ear but the newest numbers (FM indices, room sizes)
-are measured, not heard — see Next.
+**Shipped broadly.** Fetching any URL returns the complete set embedded in the
+HTML — no JavaScript needed — via `middleware.ts` → `api/render.ts`;
+`/api/sounds` serves the same data as JSON or plain text; the OG card is live;
+and the manifest entry is flipped to `live` with a wordmark, a domain and a
+`sound` figure in ToolMark. The presets have had several rounds by ear but the
+newest numbers (FM indices, room sizes) are measured, not heard — see Next.
 
 ## Session log
 
