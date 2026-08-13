@@ -28,6 +28,29 @@ newest numbers (FM indices, room sizes) are measured, not heard — see Next.
 
 ## Session log
 
+### 2026-08-13 — family sync, and llms.txt finally lists the family
+
+Nothing in this repo's own code changed. Everything arrived through `pnpm sync`
+from Ramps Studio, plus two local files:
+
+- **The Springs mark is a coil spring now**, so the switcher and footer show it.
+  Beeps' own five-bar mark is untouched. The reasoning behind the change is in
+  Motion Studio's `NEXT-UP.md` and in the comment on its `favicon.svg`; the
+  short version is that two parallel strokes cannot follow a ringing spring
+  curve at 32px without folding, and a coil is one stroke.
+- **The collapsed switcher shows the current tool's mark**, so `beeps.studio`
+  now sits behind the waveform rather than beside a bare caret.
+- **The three unbuilt tools were renamed** to Depths, Texts and SVGs.
+- **`public/llms.txt` lists the family for the first time.** It never had that
+  section, which contradicted the reason the shared manifest exports one —
+  every tool ships the list so an agent that finds one finds all of them. It is
+  generated between `FAMILY:START` / `FAMILY:END` markers by
+  `src/shared/scripts/build-llms.mjs`, which `pnpm build` runs first, so it
+  cannot rot the way Ramps' and Motion's hand-kept blocks did.
+
+Gate clean on the way out: build, 166 tests, `sync:check`. Verified against the
+live site rather than localhost, per this repo's rule.
+
 ### 2026-08-10 — recon, spec, scaffold
 
 **Recon.** Read the whole family. The shared layer and `DESIGN-LANGUAGE.md`
