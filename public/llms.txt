@@ -1,0 +1,130 @@
+# Beeps
+
+> Generates a coherent set of eleven interface sounds — tap, toggle on and off,
+> open, close, send, receive, success, error, notification, delete —
+> synthesized in the browser with Web Audio rather than sampled. No audio files
+> to host, nothing to license, and a handoff written for a coding agent.
+
+Free, no account, no API key, no rate limit. Every sound set is a pure function
+of the URL, so the same link always returns the same sounds.
+
+## Why this exists
+
+Color has ramps and tokens. Motion has curves and durations. Sound has a folder
+of MP3s someone found, at inconsistent levels, in no relationship to each other.
+An agent asked to "add a success sound" has nothing to reach for. This produces
+a set where every sound is derived from one base frequency, paired sounds are
+exact inversions of each other, and loudness is normalized across the set.
+
+## Using this as a tool
+
+Build a URL. The page returns the whole set as plain text, with no JavaScript
+required — fetching it is enough.
+
+- `https://www.beeps.studio/` — the default set
+- `https://www.beeps.studio/?p=crisp` — a different character
+- `https://www.beeps.studio/?p=warm&tap=vcrisp.a2` — one sound in another voice, with an edit
+
+### Set-level parameters
+
+| Param | Required | Values | Meaning |
+| --- | --- | --- | --- |
+| `p` | no | `soft` (default), `minimal`, `crisp`, `warm`, `bloopy`, `glassy`, `playful`, `retro`, `scifi` | The character preset. Applies to the whole set. |
+| `b` | no | 220–2000 | Base frequency in Hz. Every sound is an interval from this, so moving it transposes the set and keeps it in tune. Omit to use the preset's own. |
+
+### Per-sound parameters
+
+One parameter per sound, named after it. `toggle.on` and `toggle.off` are
+written `toggle-on` and `toggle-off`, because a dot is the field separator.
+
+The value is dot-separated fields, each a letter followed by a number:
+`tap=f720.d100.g-3`. Omit any field to keep what the preset derives — only
+what you change needs to appear.
+
+| Field | Unit | Range | Meaning |
+| --- | --- | --- | --- |
+| `f` | Hz | 20–20000 | Start frequency of the primary voice. |
+| `e` | Hz | 20–20000 | End frequency. Above `f` the sound rises; below, it falls. |
+| `a` | ms | 0.5–200 | Attack. Single digits are what separate a click from a beep. |
+| `d` | ms | 1–1000 | Decay. |
+| `r` | ms | 1–1000 | Release. |
+| `w` | ms | 1–2000 | How long the pitch takes to travel from `f` to `e`. |
+| `g` | dB | −40–12 | Level trim against the sound's tier. Negative is quieter. |
+| `c` | Hz | 80–20000 | Filter cutoff. |
+| `q` | ×10 | 0–200 | Filter resonance, times ten — `q7` is a Q of 0.7. |
+| `v` | — | any preset id | That sound's voice: which preset it is played on. Pitch stays global. |
+
+Anything out of range is clamped rather than rejected, and an unparseable field
+is dropped with a note on the page. A link always resolves to a playable set.
+
+## The set
+
+| Sound | Tier | Plays when | Does not play when |
+| --- | --- | --- | --- |
+| `tap` | subtle | A discrete press that commits something small — a button, a segment, a menu item. | Hover, focus, scroll, or any pointer movement. Never on every keystroke. |
+| `toggle.on` | subtle | A binary control turning on, when the user turned it on. | Programmatic state changes, or restoring saved settings on load. |
+| `toggle.off` | subtle | The same control turning off. | Programmatic state changes, or restoring saved settings on load. |
+| `open` | subtle | A surface the user opened: menu, sheet, drawer, disclosure. | Anything that opens by itself, including tooltips on hover. |
+| `close` | subtle | The same surface dismissed. | Route changes and page navigation — those are not closes. |
+| `send` | notable | Outbound, user-initiated: a message sent, a form submitted, a job queued. | Autosave, background sync, telemetry, retries. |
+| `receive` | notable | Inbound content arriving while the user is present and looking. | Bulk arrivals — play once for a batch, never once per item. |
+| `success` | notable | A user-initiated operation completed, and only one they were waiting for. | Background success, cache warms, or anything they did not start. Never as a page-load chime. |
+| `error` | alert | An operation failed in a way the user must respond to. | Validation on a field they have not finished typing in. Never more than once per submit. |
+| `notification` | alert | An interruption that is genuinely new information. | Anything the user can see happening. Never when the tab is focused and the item is already on screen. |
+| `delete` | notable | Destructive removal that has actually happened. | Opening a confirmation dialog — that is `open`. |
+
+Tiers set how much attention a sound asks for, and drive both its level and its
+length: `subtle` runs 70–180 ms, `notable` 90–450, `alert` 120–700.
+
+## Rules the set is built on
+
+These are worth knowing if you are going to edit the numbers.
+
+- **One base frequency.** Every sound is an interval from it, so the set stays
+  in tune when you move it. Editing one sound does not detune the others.
+- **Pairs invert by construction.** `open`/`close`, `send`/`receive` and
+  `toggle.on`/`toggle.off` traverse the same two notes in opposite directions.
+  Editing one moves the other; they cannot be set to disagree.
+- **Every sound lands on a consonant interval** — unison, major second, major
+  third, fourth, fifth or major sixth. A falling sound landing between two
+  notes reads as sad and slightly broken rather than as neutral.
+- **Direction carries meaning.** A preset may flatten a pitch move but never
+  reverse one.
+- **Loudness is normalized** across the set by A-weighted RMS, measured per
+  sound at render time, so nothing jumps out. Not LUFS: BS.1770 gates on 400 ms
+  blocks and every sound here is shorter than one block.
+- **There is a duration floor, not just a ceiling.** The ear integrates loudness
+  over roughly 100–200 ms, so a burst under about 70 ms is heard as *quieter*
+  rather than subtler — up to 10–15 dB down — and you get nothing back for the
+  room you saved.
+
+## Exports
+
+Everything is generated client-side; there is no build step and no CDN.
+
+- **WAV** — 44.1 kHz, 16-bit, mono.
+- **Data URI** — the same WAV inline, for dropping straight into a stylesheet
+  or a script with no file to serve.
+- **JavaScript** — a zero-dependency synthesis function. Ships the sounds as
+  parameters, not audio, so it costs a few hundred bytes rather than a few
+  hundred kilobytes. Muted until you enable it.
+- **JSON** — every sound with every frequency, envelope and filter resolved.
+- **Markdown** — the table above plus the parameters, written to be pasted into
+  an agent's context.
+
+## Rules for using these sounds
+
+If you are wiring these into a product, the `whenNot` column matters more than
+the `when` column. The common failure is not a bad sound, it is a good sound
+played too often.
+
+- Nothing should autoplay. Sound stays off until a user asks for it, and the
+  exported runtime defaults to muted.
+- One sound per user action. Not one per state change, and never one per item
+  in a batch.
+- Do not sound anything the user can already see happening.
+- Respect `prefers-reduced-motion` as a hint that a quieter interface is wanted.
+
+## Source
+
+MIT licensed. https://github.com/imryanreid/beeps

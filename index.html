@@ -9,14 +9,81 @@
       name="description"
       content="Generate a coherent set of interface sounds — tap, toggle, success, error, notification and more — synthesized in the browser with Web Audio. No sample library, no hosted audio, no licensing. Exports as WAV, an inline data URI, a zero-dependency synthesis function, JSON, or markdown that tells a coding agent when to play what."
     />
+    <link rel="canonical" href="https://www.beeps.studio/" />
     <meta name="robots" content="index, follow" />
+    <meta name="author" content="Ryan Reid" />
+    <meta name="theme-color" content="#fdfdfc" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#131210" media="(prefers-color-scheme: dark)" />
 
     <!--
-      No canonical, og: or JSON-LD block yet. Those name a domain, and
-      beeps.studio is not registered — a canonical tag pointing at a host that
-      does not resolve is worse than none, because it tells a crawler to prefer
-      a URL that 404s. They land with the domain, together, in one commit.
+      Raster first, SVG second: browsers that understand `type` take the SVG
+      and scale it perfectly, while everything else falls back to the PNG.
+      The PNG is not redundant — Google Search's favicon docs list neither SVG
+      among the supported formats nor anything at or below 48x48 as advisable,
+      and the SVG declares an intrinsic 32x32. Without a raster fallback a
+      search result gets the generic globe.
+      All three are generated from one shape by scripts/build-icons.py.
     -->
+    <link rel="icon" href="/icon-192.png" type="image/png" sizes="192x192" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!-- Social unfurls. og:site_name is the brand; og:title matches <title>. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Beeps" />
+    <meta property="og:url" content="https://www.beeps.studio/" />
+    <meta property="og:title" content="Beeps · UI sounds your agent can actually specify" />
+    <meta
+      property="og:description"
+      content="A coherent set of interface sounds — tap, toggle, open, close, send, receive, success, error, notification, delete — synthesized in the browser with Web Audio. No sample library, no hosted audio, no licensing. Exports as WAV, a data URI, a zero-dependency synthesis function, JSON, or markdown that tells a coding agent when to play what."
+    />
+    <!--
+      No og:image yet. An unfurl with a broken image is worse than one with
+      none: the card renders a grey box where the design should be. It lands
+      when the card itself does.
+    -->
+    <meta name="twitter:card" content="summary" />
+
+    <!--
+      Machine-readable, and deliberately specific about the part that matters:
+      this tool is meant to be handed to a coding agent, so the description
+      says what it exports and llms.txt documents the URL API.
+    -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Beeps",
+        "url": "https://www.beeps.studio/",
+        "applicationCategory": "DesignApplication",
+        "operatingSystem": "Any (web browser)",
+        "description": "Built to be handed to a coding agent: the homepage returns the complete sound set as plain text without JavaScript, and /llms.txt documents every parameter and every sound. Generates a coherent set of eleven interface sounds — tap, toggle on and off, open, close, send, receive, success, error, notification and delete — synthesized in the browser with Web Audio rather than sampled, so there is no audio to host and nothing to license. Every sound is derived from one base frequency, paired sounds invert by construction, and loudness is normalized across the set. Exports to WAV, an inline data URI, a zero-dependency synthesis function, JSON, or markdown that tells an agent when each sound should and should not play.",
+        "isAccessibleForFree": true,
+        "isPartOf": {
+          "@type": "WebSite",
+          "name": "Studio Tools",
+          "description": "Small, free, agent-readable design utilities."
+        },
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "author": {
+          "@type": "Person",
+          "name": "Ryan Reid",
+          "url": "https://www.linkedin.com/in/imryanreid/"
+        },
+        "featureList": [
+          "Eleven interface sounds covering the events a product actually has",
+          "Synthesized in the browser with Web Audio — no sample library, no hosted audio, no licensing",
+          "Nine character presets, from a near-sine default to FM bells, chiptune and zaps",
+          "Every frequency derived from one base, so editing one sound keeps the set in tune",
+          "Paired sounds invert by construction — open/close, send/receive, toggle on/off",
+          "A per-sound voice picker, so one sound can use a different preset from the rest",
+          "Loudness normalized across the set by A-weighted RMS, so no sound jumps out",
+          "A duration budget with both a ceiling and a floor, since a sound under ~70 ms is heard as quieter rather than subtler",
+          "Export to WAV, an inline data URI, a zero-dependency synthesis function, JSON, or agent-readable markdown",
+          "Shareable permalinks that encode the whole set in the URL"
+        ]
+      }
+    </script>
 
     <script>
       // Set the theme before first paint so a dark-mode visitor never sees a
