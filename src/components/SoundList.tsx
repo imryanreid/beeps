@@ -59,7 +59,7 @@ export default function SoundList({
   return (
     <section className="mb-12">
       <div className="mb-1 flex flex-wrap items-baseline justify-between gap-3">
-        <h2 className="font-display text-xl font-semibold tracking-tight">The set</h2>
+        <h2 className="font-display text-xl font-semibold tracking-tight">Sounds</h2>
         <p className="text-ash font-mono text-[11px]">
           base {Math.round(set.baseHz)} Hz · 11 sounds
         </p>

@@ -26,7 +26,7 @@ import {
   Trash,
   WarningCircle,
 } from "@phosphor-icons/react"
-import { Label, PanelTitle } from "../shared/components/Label"
+import { Label } from "../shared/components/Label"
 import Segmented from "../shared/components/Segmented"
 import { cn } from "../shared/utils"
 import { HOVER_LIFT } from "../shared/motion"
@@ -53,18 +53,32 @@ export default function Preview({
   const [focusId, setFocusId] = useState<SoundId>("tap")
   return (
     <section className="mb-12">
+      {/*
+        A section heading, matching "Sounds" above — not the shared PanelTitle,
+        which is deliberately smaller from `sm:` up because it titles a panel
+        inside a section rather than a section itself. These two are peers on
+        the page, so they need to look like peers.
+      */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <PanelTitle>Preview</PanelTitle>
+        <h2 className="font-display text-xl font-semibold tracking-tight">Preview</h2>
         {!started && <GestureHint />}
       </div>
 
+      {/*
+        `block` on both group labels is doing real work. Label renders a <span>
+        by default, and vertical margins do not apply to an inline box — so the
+        `mt-8 mb-3` that used to sit on the second one was declared and then
+        silently ignored, leaving 7px above and 3px below instead of 32 and 12.
+        That is why this label read as crowded against the grids on either side.
+      */}
+      <Label className="mb-3 block">Tools</Label>
       <div className={cn("grid gap-3 lg:grid-cols-3", muted && "opacity-50")}>
         <RapidFire play={play} soundId={focusId} onSoundId={setFocusId} />
         <Audition soundId={focusId} onSoundId={setFocusId} playOne={playOne} />
         <Sequence playSequence={playSequence} />
       </div>
 
-      <Label className="mt-8 mb-3">On real UI</Label>
+      <Label className="mt-10 mb-3 block">UI Examples</Label>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <ButtonSurface play={play} />
         <ToggleSurface play={play} />
@@ -288,10 +302,36 @@ function ToggleSurface({ play }: { play: PlayFn }) {
             on ? "bg-ink" : "bg-ink/20",
           )}
         >
+          {/*
+            The knob is positioned with `left`, not a transform, and both parts
+            of that are deliberate.
+
+            It previously had NO horizontal anchor at all — `top-1` for the
+            vertical axis and `translate-x-*` for the horizontal one. With
+            `left: auto` an absolute box falls back to its static position, and
+            that position is skewed by the inherited `text-align`, which is
+            `center` here because Tailwind's Preflight resets nearly everything
+            on a <button> except that. So the origin was never 0, the translate
+            stacked on top of it, and the knob sat against the right cap in
+            BOTH states — spilling out of the pill and onto the label.
+
+            The translate was then also failing to apply in this subtree: the
+            class was present and `--tw-translate-x` held the right value, yet
+            the computed `translate` stayed `0px`, while the same element cloned
+            into a neutral parent animated correctly. Rather than depend on that,
+            the position is now stated outright. `left` is the property actually
+            being reasoned about, a 16px knob gains nothing measurable from
+            compositing, and there is no custom-property indirection left to
+            break.
+
+            Arithmetic, stated once: the track is w-10 (40) and the knob w-4
+            (16), so a 4px inset on each side means left-1 (4) when off and
+            left-5 (20) when on.
+          */}
           <span
             className={cn(
-              "bg-paper absolute top-1 h-4 w-4 rounded-full transition-transform",
-              on ? "translate-x-5" : "translate-x-1",
+              "bg-paper absolute top-1 h-4 w-4 rounded-full transition-[left] duration-200 ease-out",
+              on ? "left-5" : "left-1",
             )}
           />
         </span>
