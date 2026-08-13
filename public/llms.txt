@@ -21,11 +21,20 @@ exact inversions of each other, and loudness is normalized across the set.
 Build a URL. The page renders the whole set as plain text in the DOM, so a
 browser or a headless agent that runs JavaScript can read it directly.
 
-**If you do not run JavaScript**, fetching the page gets you the shell and this
-file — no sound data. Everything you need to construct a set is documented
-below, and the parameters are readable and hand-writable on purpose. A plain
-no-JavaScript endpoint is the next thing being built here; until it exists,
-this file is the contract.
+**If you do not run JavaScript**, use `/api/sounds` instead. It takes the same
+query string and needs no browser:
+
+- `https://www.beeps.studio/api/sounds` — the default set, as JSON
+- `https://www.beeps.studio/api/sounds?format=text` — the same, as plain text
+- `https://www.beeps.studio/api/sounds?p=crisp` — a different character
+
+It returns every sound with its tier, length, frequency range and its play/do-not-play
+rules, plus the tier budgets and the preset list. One thing it deliberately omits:
+`normalizedGain`. Loudness normalization is measured from a real render, which
+needs Web Audio, so the browser computes it and this endpoint cannot. Sounds
+played from the page are level-matched; these parameters alone are not.
+
+The page itself takes the same parameters:
 
 - `https://www.beeps.studio/` — the default set
 - `https://www.beeps.studio/?p=crisp` — a different character

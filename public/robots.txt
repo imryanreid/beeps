@@ -7,8 +7,8 @@
 
 # If you are an agent: https://www.beeps.studio/llms.txt is the full contract —
 # every query parameter, every sound in the set, and when each one should and
-# should not play. The page itself renders the set as plain text once
-# JavaScript runs; if you do not run it, llms.txt is the complete contract.
+# should not play. If you do not run JavaScript, /api/sounds takes the same
+# query string and returns the resolved set as JSON or plain text.
 
 User-agent: *
 Allow: /

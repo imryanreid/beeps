@@ -38,21 +38,31 @@
       content="A coherent set of interface sounds — tap, toggle, open, close, send, receive, success, error, notification, delete — synthesized in the browser with Web Audio. No sample library, no hosted audio, no licensing. Exports as WAV, a data URI, a zero-dependency synthesis function, JSON, or markdown that tells a coding agent when to play what."
     />
     <!--
-      No og:image yet. An unfurl with a broken image is worse than one with
-      none: the card renders a grey box where the design should be. It lands
-      when the card itself does.
+      Static, not generated per-set. Ramps renders its card per palette because
+      a palette IS colours and the card can show yours; a sound set does not
+      unfurl that way, and a dynamic card would mean pulling in @vercel/og for
+      a picture that would look near-identical every time.
+      Regenerate with scripts/build-og.md if the set or the wording changes.
     -->
-    <meta name="twitter:card" content="summary" />
+    <meta property="og:image" content="https://www.beeps.studio/og.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Beeps — UI Sound Generator. Four rendered waveforms from the default set: notification, send, success and delete."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
 
     <!--
       Machine-readable, and deliberately specific about the part that matters:
       this tool is meant to be handed to a coding agent, so the description
       says what it exports and llms.txt documents the URL API.
 
-      It does NOT claim a no-JavaScript fetch returns the set, because it does
-      not — this is a client-rendered page and the served HTML is the shell.
-      Ramps can make that claim because it has the middleware and /api to back
-      it; those are still to build here. See NEXT-UP.
+      The no-JavaScript claim names /api/sounds specifically, not the page.
+      The page is client-rendered and its served HTML is the shell; the
+      endpoint is what makes the claim true, and it was written only after a
+      real curl proved the page could not back it.
     -->
     <script type="application/ld+json">
       {
@@ -62,7 +72,7 @@
         "url": "https://www.beeps.studio/",
         "applicationCategory": "DesignApplication",
         "operatingSystem": "Any (web browser)",
-        "description": "Built to be handed to a coding agent: /llms.txt documents every parameter and every sound, and the page renders the complete set as plain text in the DOM. Generates a coherent set of eleven interface sounds — tap, toggle on and off, open, close, send, receive, success, error, notification and delete — synthesized in the browser with Web Audio rather than sampled, so there is no audio to host and nothing to license. Every sound is derived from one base frequency, paired sounds invert by construction, and loudness is normalized across the set. Exports to WAV, an inline data URI, a zero-dependency synthesis function, JSON, or markdown that tells an agent when each sound should and should not play.",
+        "description": "Built to be handed to a coding agent: /api/sounds returns the resolved set as JSON or plain text with no JavaScript required, /llms.txt documents every parameter and every sound, and the page renders the complete set as plain text in the DOM. Generates a coherent set of eleven interface sounds — tap, toggle on and off, open, close, send, receive, success, error, notification and delete — synthesized in the browser with Web Audio rather than sampled, so there is no audio to host and nothing to license. Every sound is derived from one base frequency, paired sounds invert by construction, and loudness is normalized across the set. Exports to WAV, an inline data URI, a zero-dependency synthesis function, JSON, or markdown that tells an agent when each sound should and should not play.",
         "isAccessibleForFree": true,
         "isPartOf": {
           "@type": "WebSite",
@@ -85,6 +95,7 @@
           "Loudness normalized across the set by A-weighted RMS, so no sound jumps out",
           "A duration budget with both a ceiling and a floor, since a sound under ~70 ms is heard as quieter rather than subtler",
           "Export to WAV, an inline data URI, a zero-dependency synthesis function, JSON, or agent-readable markdown",
+          "A no-JavaScript JSON and plain-text endpoint at /api/sounds, taking the same query string as the page",
           "Shareable permalinks that encode the whole set in the URL"
         ]
       }
