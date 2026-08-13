@@ -275,55 +275,50 @@ without checking.
 
 ## Next
 
-0. **Ry is writing per-sound shape/flavour definitions.** Those land next and
-   supersede a chunk of the tuning below. Two things to know before folding
-   them in: the _semantics_ are currently global (every preset shares the same
-   intervals and directions) and only _character_ varies per preset — if a
-   definition implies a sound's shape should differ BY preset, that is a real
-   architectural change, not a tweak. And two rules are load-bearing unless
-   argued out of: direction stays meaningful, and the duration window is a real
-   constraint at both ends.
+1. **A listening pass on what changed after the last one.** Signed off already:
+   Glassy ("nailed it, much clearer and cleaner"), Warm ("PERFECT"), the
+   in-tune landings, pair distinctness, `tap`/`error`, the `open`/`toggle.on`
+   landing collision, and the per-sound voice picker.
 
-1. **Tune the ten presets by ear, now that the palette is wide.** Every
-   preset's FM and space numbers are a considered starting point and none has
-   been heard yet. Glassy's FM in particular should make it trivially glassy
-   at last — a 3.5 ratio *is* the bell/glass timbre, which is what four rounds
-   of additive tuning could not reach. Also still open: whether `send` landing
-   a major second below base is too high for "lower register", and whether
-   Crisp reads as a click yet.
+   **Unheard**, all of it changed in response to feedback but never played back:
 
-   The obvious next lever if the range still is not enough: a **filter
-   envelope**, which is the one item from the spec's v2 list not yet built.
+   - **Sci-Fi's carrier.** Called "crunchy and bleh"; its FM sat on a sawtooth
+     and now sits on a sine, flatness 0.450 → 0.191. Ry was leaning toward
+     cutting this preset, so it either lands now or it goes.
+   - **The three rooms**, which used to be one room three times. Retro is now
+     tight and bright, Sci-Fi dark and distant, Playful a discrete bounce.
+   - **Bloopy's cutoff**, 720 → 1000 Hz. It had been filtering its own
+     fundamental, which is what "slightly muddy" was.
+   - **The nine-preset set as a set**, since Xylophone was cut.
 
-   Superseded — round one opened up the
-   envelope-shape axis (decay:release now spans 1.3 to 6.8 where it spanned
-   1.9 to 3.1) and rebuilt Warm's beating so it is fast enough to hear. Use the
-   new **Across presets** control — it plays one sound through all nine back to
-   back, which is the only way preset character can actually be judged.
+2. **Two questions still unanswered**, both asked and never resolved:
 
-   Listen for: whether Crisp now reads as a click rather than a short beep,
-   whether Warm's 24-cent beat is audible at a 132 ms `tap` (it is ~1.2 cycles
-   there and ~2.7 at 290 ms — it may still need widening), and whether Glassy's
-   restored tails read as a bell now they can ring to 510 ms.
+   - Does `send` landing a **major second** below base read as "lower
+     register"? The original spec said send/receive are the lower pair, and
+     this is the highest they have sat. Dropping the pair a fourth is a
+     one-line change if not.
+   - Does **Crisp** read as a click rather than a short beep? Open since the
+     first tuning round.
 
-   Superseded note — This is the piece that cannot be checked
-   by a test and the thing the tool will be judged on. Every number is a
-   considered starting point, not a finished one. Use rapid-fire at 120 ms as
-   the acceptance test, and listen to `notification` on each — it is the
-   longest sound in every preset and the first to feel wrong.
+3. **The next lever, if the palette still is not wide enough:** a **filter
+   envelope** — the one item on the spec's v2 list not yet built, and the
+   classic pluck/wow character knob. Right now the filter only moves for
+   `expand` and `collapse`.
 
-   Watch for two things the maths cannot catch: whether Warm's 9-cent beat is
-   audible at these durations (a beat needs time to be heard, and these sounds
-   are short), and whether Glassy's shortened tails still read as a bell now
-   they had to come down to fit the 200ms budget.
+4. **The no-JavaScript agent surface** — `middleware.ts` plus `api/`. `llms.txt`
+   currently states plainly that a non-JS fetch gets the shell and that file;
+   this is what makes that claim unnecessary. Verify with a real `curl`, not a
+   browser — see the log entry for why that distinction has already bitten once.
 
-2. **Register beeps.studio**, then land the domain commit — `CLAUDE.md` lists
-   every file that has to change together, including the manifest entry and its
-   blurb upstream in Ramps.
-3. **Agent surfaces**: `middleware.ts` + `api/render` + `/api/sounds`,
-   `llms.txt`, JSON-LD, `robots.txt`, `sitemap.xml`. Verify with a real
-   no-JavaScript fetch — a browser check proves nothing there.
-4. Favicon, app icons and an OG card.
+5. **An OG card.** `index.html` deliberately ships no `og:image`, because an
+   unfurl with a broken image renders a grey box. `twitter:card` is `summary`
+   until one exists.
+
+6. **The upstream manifest flip**, when Ry says it is ready: `wordmark`,
+   `domain`, `status: "live"` on the `sound` entry in Ramps, plus that entry's
+   blurb, which still promises a motion-coupling this tool does not do. Until
+   then `familyAsText()` calls Beeps "not yet released" in the exported agent
+   markdown on its own live site — the one place the deferral shows.
 
 ## Known blockers / open
 
