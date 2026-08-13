@@ -1,24 +1,25 @@
 #!/usr/bin/env python3
 # ==============================================
 # BUILD ICONS
-# Renders the PNG favicons from the same shape as
-# public/favicon.svg.
+# Renders public/favicon.svg and the PNG fallbacks
+# from one description of the shape.
 #
-# Why this exists: browsers take the SVG happily, but
-# Google Search's favicon documentation lists neither
-# SVG among its supported formats nor anything below
-# 48x48 as a good idea — and our SVG declares an
-# intrinsic 32x32. So the search result needs a real
-# raster fallback.
+# Why the PNGs exist: browsers take the SVG happily,
+# but Google Search's favicon documentation lists
+# neither SVG among its supported formats nor anything
+# below 48x48 as a good idea — and the SVG declares an
+# intrinsic 32x32. So a search result needs a real
+# raster fallback or it gets the generic globe.
 #
 # Why it's hand-rolled: pure stdlib, matching Ramps.
-# Pulling in a rasterizer to draw one rounded square
-# and one polyline would cost more than drawing them.
-# zlib and struct are all a PNG needs; antialiasing is
-# 4x supersampling and a box filter.
+# The figure is five rounded bars on a rounded square;
+# pulling in a rasterizer to draw that would cost more
+# than drawing it. zlib and struct are all a PNG needs,
+# and antialiasing is 4x supersampling with a box
+# filter.
 #
-# Run it after editing public/favicon.svg, or the PNGs
-# silently drift from the source shape:
+# Run it after changing BARS, or the SVG and the PNGs
+# drift apart:
 #     python3 scripts/build-icons.py
 # ==============================================
 import math
@@ -26,91 +27,106 @@ import os
 import struct
 import zlib
 
-# The shape, in the SVG's own 32-unit coordinate space. Keep in step with
-# public/favicon.svg — that file stays the source of truth for the design.
-PLATE = (0, 0, 32, 32)
-PLATE_RADIUS = 7.0
+# The shape, in a 32-unit coordinate space with the family's 6-unit inset.
+#
+# Bars, not a curve. The mark was a decaying oscillation drawn as one
+# continuous stroke, which read as a near-twin of Springs' spring-response
+# curve — same colour, same weight, same kind of drawing. Bars are a different
+# kind of object at a glance, and they rhyme with Ramps' four horizontal bars
+# rotated a quarter turn.
+#
+# The heights are deliberately IRREGULAR. A smooth fall reads as a level meter
+# decaying; real audio is not monotonic, and the unevenness is what makes this
+# read as a waveform rather than a chart.
 INK = (0x13, 0x12, 0x10)
-STROKE = (0x8D, 0xB0, 0xFF)
-STROKE_WIDTH = 2.6
+BLUE = (0x8D, 0xB0, 0xFF)
+PLATE_RADIUS = 7.0
+INSET, SPAN = 6.0, 20.0
+MID = 16.0
 
-# The envelope: amplitude decaying while the phase keeps turning. Same
-# constants as the SVG generator, so the curves are the same curve.
-INSET, SPAN, MID = 6.0, 20.0, 16.0
-AMPLITUDE, DECAY, CYCLES, STEPS = 8.2, 2.9, 2.15, 44
-
-
-def curve_points():
-    pts = []
-    for i in range(STEPS + 1):
-        t = i / STEPS
-        x = INSET + t * SPAN
-        y = MID - AMPLITUDE * math.exp(-DECAY * t) * math.sin(2 * math.pi * CYCLES * t)
-        pts.append((x, y))
-    return pts
+BARS = [9.0, 20.0, 12.0, 17.0, 7.0]
+BAR_WIDTH = 2.8
+BAR_RADIUS = 1.1
 
 
-def point_in_rounded_rect(x, y, rect, radius):
-    x0, y0, x1, y1 = rect
-    if not (x0 <= x <= x1 and y0 <= y <= y1):
+def bar_rects():
+    """(x, y, w, h) for each bar, in the 32-unit space."""
+    gap = (SPAN - len(BARS) * BAR_WIDTH) / (len(BARS) - 1)
+    out = []
+    for i, h in enumerate(BARS):
+        x = INSET + i * (BAR_WIDTH + gap)
+        out.append((x, MID - h / 2, BAR_WIDTH, h))
+    return out
+
+
+def write_svg(path):
+    rects = "\n  ".join(
+        f'<rect x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" '
+        f'rx="{BAR_RADIUS}" fill="#{BLUE[0]:02x}{BLUE[1]:02x}{BLUE[2]:02x}" />'
+        for x, y, w, h in bar_rects()
+    )
+    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Five bars at irregular heights — a waveform, not a level meter. The
+       unevenness is the point: a smooth decay reads as a meter, and real audio
+       is not monotonic. Shares the family plate: #131210, rx 7, a 6-unit inset.
+       Keep in step with the `sound` figure in the shared ToolMark. -->
+  <rect width="32" height="32" rx="{PLATE_RADIUS:g}" fill="#{INK[0]:02x}{INK[1]:02x}{INK[2]:02x}" />
+  {rects}
+</svg>
+"""
+    with open(path, "w") as f:
+        f.write(svg)
+    print(f"{path}")
+
+
+def in_rounded_rect(px, py, x, y, w, h, r):
+    if not (x <= px <= x + w and y <= py <= y + h):
         return False
-    # Only the four corner boxes need the circle test.
-    cx = x0 + radius if x < x0 + radius else (x1 - radius if x > x1 - radius else x)
-    cy = y0 + radius if y < y0 + radius else (y1 - radius if y > y1 - radius else y)
-    if cx == x or cy == y:
+    r = min(r, w / 2, h / 2)
+    cx = x + r if px < x + r else (x + w - r if px > x + w - r else px)
+    cy = y + r if py < y + r else (y + h - r if py > y + h - r else py)
+    if cx == px or cy == py:
         return True
-    return math.hypot(x - cx, y - cy) <= radius
-
-
-def distance_to_polyline(x, y, pts):
-    best = float("inf")
-    for (ax, ay), (bx, by) in zip(pts, pts[1:]):
-        dx, dy = bx - ax, by - ay
-        length_sq = dx * dx + dy * dy
-        t = 0.0 if length_sq == 0 else max(0.0, min(1.0, ((x - ax) * dx + (y - ay) * dy) / length_sq))
-        best = min(best, math.hypot(x - (ax + t * dx), y - (ay + t * dy)))
-    return best
+    return math.hypot(px - cx, py - cy) <= r
 
 
 def render(size, supersample=4):
     """RGB rows at `size` px, drawn at 4x and box-filtered down."""
-    pts = curve_points()
-    half = STROKE_WIDTH / 2
+    rects = bar_rects()
     big = size * supersample
     scale = 32.0 / big
 
-    # Supersampled coverage, one pass per layer.
     plate = bytearray(big * big)
-    stroke = bytearray(big * big)
+    bars = bytearray(big * big)
     for py in range(big):
         uy = (py + 0.5) * scale
         row = py * big
         for px in range(big):
             ux = (px + 0.5) * scale
-            if point_in_rounded_rect(ux, uy, PLATE, PLATE_RADIUS):
+            if in_rounded_rect(ux, uy, 0, 0, 32, 32, PLATE_RADIUS):
                 plate[row + px] = 1
-                # Round caps and joins fall out of a plain distance test.
-                if distance_to_polyline(ux, uy, pts) <= half:
-                    stroke[row + px] = 1
+                for x, y, w, h in rects:
+                    if in_rounded_rect(ux, uy, x, y, w, h, BAR_RADIUS):
+                        bars[row + px] = 1
+                        break
 
     rows = []
     n = supersample * supersample
     for y in range(size):
-        row = bytearray([0])  # PNG filter byte: none
+        out = bytearray([0])  # PNG filter byte: none
         for x in range(size):
-            plate_hits = stroke_hits = 0
+            pa = ba = 0
             for sy in range(supersample):
                 base = (y * supersample + sy) * big + x * supersample
                 for sx in range(supersample):
-                    plate_hits += plate[base + sx]
-                    stroke_hits += stroke[base + sx]
-            pa, sa = plate_hits / n, stroke_hits / n
-            for channel in range(3):
-                # Stroke over plate over transparent-as-white; the plate is
-                # opaque wherever it covers, so a flat composite is exact.
-                value = INK[channel] * pa + (STROKE[channel] - INK[channel]) * sa
-                row.append(max(0, min(255, round(value))))
-        rows.append(bytes(row))
+                    pa += plate[base + sx]
+                    ba += bars[base + sx]
+            pa, ba = pa / n, ba / n
+            for c in range(3):
+                # Bars over plate. The plate is opaque wherever it covers, so a
+                # flat composite is exact.
+                out.append(max(0, min(255, round(INK[c] * pa + (BLUE[c] - INK[c]) * ba))))
+        rows.append(bytes(out))
     return b"".join(rows)
 
 
@@ -137,5 +153,6 @@ def write_png(path, size):
 if __name__ == "__main__":
     here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     public = os.path.join(here, "public")
+    write_svg(os.path.join(public, "favicon.svg"))
     write_png(os.path.join(public, "icon-192.png"), 192)
     write_png(os.path.join(public, "apple-touch-icon.png"), 180)
