@@ -282,7 +282,16 @@ without checking.
   step response. Its points are **copied** from `favicon.svg`, not redrawn:
   transcribing them by hand produced a curve that diverged from the second
   point on, which a check caught.
-- **`/api/sounds`** — the no-JavaScript surface, no new dependency. It exports a
+- **`middleware.ts` + `api/render.ts`** — "/" itself now carries the set, so an
+  agent told "use beeps.studio" gets data from the URL it actually lands on.
+  Ported from Ramps, whose comments are load-bearing: the shell is fetched
+  uncached with a per-deployment key (a CDN hit hands you the *previous*
+  build's shell — Motion shipped that), the response is checked for
+  `<div id="root">` before injecting (Deployment Protection serves the SSO
+  login page at 200), JSON is escaped for `<` (a `</script>` in a value ended
+  the element on Ramps in production), and every head rewrite uses a replacer
+  *function* because `$&` expands after escaping runs.
+- **`/api/sounds`** — the same data without the page, no new dependency. It exports a
   plain `GET(request)` like Ramps' `api/palette.ts`, and the resolve graph was
   already Node-clean because `src/lib` carries explicit `.js` extensions for
   exactly this. It does **not** reuse `src/lib/export.ts`: that module reaches
@@ -291,6 +300,14 @@ without checking.
   that field and says why in the payload, rather than emitting a silent 1.
 - **OG card** — static 1200×630, drawn on canvas in the running app so the four
   waveforms are the *real* rendered audio. See `scripts/build-og.md`.
+
+**The no-JavaScript claim, three times.** It was false, then true of
+`/api/sounds` only, then true of every URL — and `llms.txt`, `robots.txt` and
+the JSON-LD each ended up asserting a different one of those. Verified by curl
+each time: the bare homepage now serves 17.3 KB carrying all eleven sounds,
+where it served 6.3 KB of shell. **Verify this with curl, never a browser** —
+the browser is the one client that already worked, which is exactly why the
+original false claim survived every check.
 
 **Two gaps found while doing it, both worth remembering:**
 
