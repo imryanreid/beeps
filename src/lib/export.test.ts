@@ -234,3 +234,41 @@ describe("the markdown reports what the set actually is", () => {
     }
   })
 })
+
+describe("the interval column", () => {
+  it("does not repeat one note once per oscillator", () => {
+    // Warm stacks three detuned sines: one note, three voices. That used to
+    // print as "+1 → +0, then +1 → +0, then +1 → +0".
+    const warm = resolve({ presetId: "warm", deltas: {} })
+    const md = toAgentMarkdown(warm, URL_)
+    const row = md.split("\n").find((l) => l.startsWith("| `tap`"))!
+    const interval = row.split("|")[4].trim()
+    expect(interval).not.toContain("then")
+    expect(interval.match(/→/g)?.length ?? 0).toBeLessThanOrEqual(1)
+  })
+
+  it("never prints the same interval twice in one cell", () => {
+    // `success` is a note plus a detuned stack arriving together a moment
+    // later; those three used to print as three separate "then" events.
+    const warm = resolve({ presetId: "warm", deltas: {} })
+    const md = toAgentMarkdown(warm, URL_)
+    for (const l of md.split("\n").filter((x) => x.startsWith("| `"))) {
+      const cell = l.split("|")[4].trim()
+      const labels = cell.split(/,\s*then\s*|\s*\+\s*/).map((x) => x.trim()).filter(Boolean)
+      expect(new Set(labels).size, cell).toBe(labels.length)
+    }
+  })
+
+  it("still says 'then' for a voice that genuinely arrives later", () => {
+    // notification is a two-note ding — the second note is offset, so the
+    // sequence is real and must survive the deduplication above.
+    const warm = resolve({ presetId: "warm", deltas: {} })
+    const offsets = warm.sounds
+      .find((s) => s.id === "notification")!
+      .voices.filter((v) => v.startOffsetMs > 0)
+    const row = toAgentMarkdown(warm, URL_)
+      .split("\n")
+      .find((l) => l.startsWith("| `notification`"))!
+    if (offsets.length) expect(row).toContain("then")
+  })
+})

@@ -232,14 +232,38 @@ function intervalOf(set: SoundSet, id: SoundId): string {
   const osc = sound.voices.filter((v) => v.kind === "osc")
   if (!osc.length) return ""
   const semis = (hz: number) => Math.round(Math.log2(hz / set.baseHz) * 12)
-  return osc
-    .map((v) => {
-      if (v.kind !== "osc") return ""
-      const from = semis(v.pitch.startHz)
-      const to = semis(v.pitch.endHz)
-      const sign = (n: number) => (n >= 0 ? `+${n}` : `${n}`)
-      return from === to ? sign(to) : `${sign(from)} → ${sign(to)}`
-    })
+  const sign = (n: number) => (n >= 0 ? `+${n}` : `${n}`)
+  const label = (v: (typeof osc)[number]) => {
+    if (v.kind !== "osc") return ""
+    const from = semis(v.pitch.startHz)
+    const to = semis(v.pitch.endHz)
+    return from === to ? sign(to) : `${sign(from)} → ${sign(to)}`
+  }
+
+  // "then" means LATER, not "and also".
+  //
+  // This used to map every voice and join them all with ", then ", which was
+  // invisible while the default preset had one voice per sound and wrong the
+  // moment it did not. A preset like Warm stacks three sines a few cents apart
+  // — one note, three oscillators — and that rendered as "+1 → +0, then +1 → +0,
+  // then +1 → +0", telling an agent a single tap makes three successive moves.
+  //
+  // Voices are grouped by WHEN THEY START. Anything sharing a start time is one
+  // chord — deduplicated, joined with "+". Each distinct later arrival is a
+  // "then", in the order it happens. Grouping by offset rather than splitting
+  // t0-from-the-rest matters: `success` arrives as a note plus a detuned stack
+  // that all lands together a moment later, and treating those three as three
+  // separate events printed "+6 → +5" three times over.
+  const byOffset = new Map<number, string[]>()
+  for (const v of osc) {
+    const at = Math.round(v.startOffsetMs)
+    if (!byOffset.has(at)) byOffset.set(at, [])
+    byOffset.get(at)!.push(label(v))
+  }
+
+  return [...byOffset.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([, labels]) => [...new Set(labels)].join(" + "))
     .join(", then ")
 }
 
