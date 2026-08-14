@@ -129,11 +129,17 @@ export default function PresetSelect({
                     <span className="font-mono text-[11px]">{preset.name}</span>
                     {current && <Check size={12} weight="bold" className="text-ash shrink-0" />}
                   </span>
+                  {/*
+                    Name and description only. `suits` — "finance, health,
+                    anything that should feel steady" — is still on the preset
+                    and still ships in the agent payload, where a machine
+                    choosing between nine characters has nothing else to go on.
+                    In the menu it was a third line on every row, turning a
+                    nine-item list into twenty-seven lines of prose to scan past
+                    while listening.
+                  */}
                   <span className="text-ash mt-0.5 block text-[11px] leading-relaxed">
                     {preset.blurb}
-                  </span>
-                  <span className="text-ash/70 mt-0.5 block font-mono text-[10px]">
-                    {preset.suits}
                   </span>
                 </button>
 
