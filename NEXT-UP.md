@@ -28,6 +28,58 @@ newest numbers (FM indices, room sizes) are measured, not heard — see Next.
 
 ## Session log
 
+### 2026-08-13 — iOS silence, agent-surface parity, and a default change
+
+**Warm is the default preset now**, first in `PRESET_IDS`. A near-sine set is
+the hardest thing to tell apart from no character at all, and the landing page
+gets one chance to show the tool makes sounds worth using. Soft stays as the
+neutral base to edit from. This moves a public surface — a bare `beeps.studio/`
+returns a different set — so the `p` table in `llms.txt` and the parameter block
+in `export.ts` moved with it.
+
+Eight tests failed on that switch and **none were a regression**. Five in
+`runtime.test.ts` count nodes to assert routing and polyphony, and warm carries
+FM, so every sound resolved to a carrier plus a modulator and the counts became
+multiples; those are pinned to `soft` now, with a note. Three in
+`resolve.test.ts` compared an explicit `"soft"` against `DEFAULT_CONFIG`, which
+stopped being like-for-like. Fixed by pinning both sides, **not** by
+re-baselining the numbers to warm's output.
+
+**iOS was completely silent with the Ring/Silent switch on.** Safari starts a
+page in the "ambient" audio session category, which that switch mutes outright.
+Nothing was wrong in the code — the lazy context, the in-gesture `resume()`, the
+recovery path, the mute default, the normalization guards and the 44100 offline
+rate were all already correct. `useAudio.ts` now plays 0.2 s of generated
+silence through an `HTMLAudioElement` on the first unmuted gesture, which
+promotes the page to "playback" so Web Audio follows the media volume. It fires
+once, past the mute gate, and the element is held in a ref because a collected
+one can take the promotion with it. **Deliberately not in
+`src/runtime/beeps.js`** — an app embedding the runtime may want a notification
+to stay quiet on a silenced phone.
+
+**The agent surfaces now say what the set actually is.** An agent reading the
+set by fetch reported that it could not tell an edited set from a stock one, and
+that a sound 5× past its tier ceiling exported clean. Both were true. Per-sound
+`overrides`, `voice`, resolved `envelopeMs`/`filter`/`pitchHz`, a `budget`
+verdict and a one-line `character` are in the payload; violations also surface
+at the top level and in `?format=text`. `toAgentMarkdown` reached parity and
+takes an optional `SetConfig` for it — deriving overrides by diffing against the
+stock set would wrongly implicate the partner of any mirrored pitch edit.
+
+Three traps worth not rediscovering:
+
+- **`Label` renders a `<span>`, so vertical margins on it are inert.** Several
+  labels asked for `mt-8`/`mb-3` and rendered 7px and 3px. Add `block`. Note
+  that computed style *echoes* the declared margin even when it has no layout
+  effect, so reading `marginBottom` proves nothing — measure the rendered gap.
+- **An absolutely positioned box with no horizontal anchor falls back to a
+  static position skewed by the inherited `text-align`.** Tailwind's Preflight
+  resets nearly everything on a `<button>` except that, so the toggle knob sat
+  against the right cap in both states. State the axis you mean.
+- **A hidden Browser pane freezes transitions at their start value.** Computed
+  values for anything mid-transition read as the "before" number, which looks
+  exactly like a broken CSS rule. Kill transitions before measuring.
+
 ### 2026-08-13 — family sync, and llms.txt finally lists the family
 
 Nothing in this repo's own code changed. Everything arrived through `pnpm sync`
