@@ -21,7 +21,27 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createBeeps, type BeepsConfig, type BeepsPlayer } from "../runtime/beeps.js"
 import { canRender, normalizeSet } from "./render.js"
+import { encodeWav, toDataUri } from "./wav.js"
 import type { Sound, SoundId, SoundSet } from "./sounds.js"
+
+/**
+ * A fifth of a second of digital silence, as a data URI.
+ *
+ * Built from the WAV encoder this tool already ships rather than added as an
+ * asset — the repo has no audio files and should not gain one for this. 8 kHz
+ * mono keeps it around 3 KB, and it is generated from zeros at runtime so it
+ * costs the bundle nothing but the call.
+ */
+function silentWav(): string {
+  const rate = 8000
+  return toDataUri(
+    encodeWav(new Float32Array(Math.round(rate * 0.2)), {
+      sampleRate: rate,
+      channels: 1,
+      bitDepth: 16,
+    }),
+  )
+}
 
 export type AudioState = {
   /** The set with measured gains folded in, or the raw set until that lands. */
@@ -91,6 +111,47 @@ export function useAudio(rawSet: SoundSet): AudioState {
     return playerRef.current
   }, [])
 
+  /**
+   * Make iOS follow the volume buttons instead of the Ring/Silent switch.
+   *
+   * Safari starts a page in the "ambient" audio session category, which the
+   * hardware switch mutes outright — so on a phone set to silent this tool was
+   * completely dead, with no error and nothing on screen to explain it. Playing
+   * an HTMLAudioElement promotes the page to the "playback" category, and from
+   * then on Web Audio is governed by the media volume like any other media.
+   *
+   * Deliberately fired only once we are actually about to make sound: past the
+   * mute gate, inside the same user gesture. Promoting the session on page load
+   * would be the exact overreach the mute gate exists to prevent.
+   *
+   * The element is kept in a ref rather than dropped on the floor. A collected
+   * element can take the promotion with it, and the failure would look like the
+   * bug coming back at random.
+   *
+   * Not in `src/runtime/beeps.js`. This is the tool's own call — you came here
+   * to audition sounds, so the switch should not gate that. An app that embeds
+   * the exported runtime may well want a notification to stay silent when the
+   * phone is on silent, and that decision is theirs to make.
+   */
+  const unlockedRef = useRef(false)
+  const silenceRef = useRef<HTMLAudioElement | null>(null)
+  const unlockSilentSwitch = useCallback(() => {
+    if (unlockedRef.current || typeof Audio === "undefined") return
+    unlockedRef.current = true
+    try {
+      const el = new Audio(silentWav())
+      // iOS refuses inline playback without this and opens the fullscreen
+      // player instead, which would be a very loud way to play silence.
+      el.setAttribute("playsinline", "")
+      silenceRef.current = el
+      // A rejection just means the promotion did not happen — the tool still
+      // works with the switch off, so there is nothing to report.
+      void el.play()?.catch(() => {})
+    } catch {
+      /* No Audio constructor. Nothing to promote, nothing to do. */
+    }
+  }, [])
+
   /** Start on the opening gesture, then honour the mute. Returns false if silent. */
   const arm = useCallback((): BeepsPlayer | null => {
     const player = ensure()
@@ -99,9 +160,10 @@ export function useAudio(rawSet: SoundSet): AudioState {
       setStarted(true)
     }
     if (muted) return null
+    unlockSilentSwitch()
     player.enabled = true
     return player
-  }, [ensure, started, muted])
+  }, [ensure, started, muted, unlockSilentSwitch])
 
   const play = useCallback((id: SoundId) => arm()?.play(id), [arm])
 
