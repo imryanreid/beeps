@@ -17,8 +17,9 @@ import { useState } from "react"
 import { CaretRight, Play, Warning } from "@phosphor-icons/react"
 import { Label } from "../shared/components/Label"
 import { cn } from "../shared/utils"
+import { AnimatePresence, motion } from "motion/react"
 import Picker from "./Picker"
-import { HOVER_LIFT } from "../shared/motion"
+import { DUR, EASE_PANEL, HOVER_LIFT } from "../shared/motion"
 import {
   DURATION_BUDGET,
   durationVerdict,
@@ -350,19 +351,41 @@ function SoundRow({
         </button>
       </div>
 
-      {open && (
-        <Editor
-          sound={sound}
-          spec={spec}
-          baseHz={baseHz}
-          showLabels={showLabels}
-          onToggleLabels={onToggleLabels}
-          onEdit={onEdit}
-          onPreset={onPreset}
-          presetId={presetId}
-          setPresetId={setPresetId}
-        />
-      )}
+      {/*
+        A height collapse, not the POPOVER token. This is a large block of
+        controls opening in flow and pushing ten rows down the page — the
+        opposite of a small surface floating over one. Popping it in moves
+        everything below it with no warning, in the interaction people use most.
+        `overflow-hidden` is what clips the collapse; without it the sliders
+        spill past the shrinking box mid-flight.
+
+        Only one row is ever open (SoundList owns a single `openId`), so this
+        never animates eleven boxes at once.
+      */}
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key="editor"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: DUR.panel, ease: EASE_PANEL }}
+            className="overflow-hidden"
+          >
+            <Editor
+              sound={sound}
+              spec={spec}
+              baseHz={baseHz}
+              showLabels={showLabels}
+              onToggleLabels={onToggleLabels}
+              onEdit={onEdit}
+              onPreset={onPreset}
+              presetId={presetId}
+              setPresetId={setPresetId}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </li>
   )
 }
