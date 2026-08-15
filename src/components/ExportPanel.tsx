@@ -18,6 +18,7 @@ import ExportPanel, { type ExportFormat } from "../shared/components/ExportPanel
 import { toAgentMarkdown, toJson, toJs, toNative } from "../lib/export"
 import { canRender, encodeSound, type EncodedSound } from "../lib/render"
 import { SOUND_IDS, type SoundId, type SoundSet } from "../lib/sounds"
+import Picker from "./Picker"
 import type { SetConfig } from "../lib/resolve"
 
 const KB = (bytes: number) => `${(bytes / 1024).toFixed(1)} KB`
@@ -61,17 +62,14 @@ export default function BeepsExport({
   const picker = (
     <label className="flex items-center gap-2 font-mono text-[11px] text-white/45">
       sound
-      <select
+      <Picker
         value={soundId}
-        onChange={(e) => setSoundId(e.target.value as SoundId)}
-        className="text-paper rounded border border-white/15 bg-transparent px-1.5 py-0.5 font-mono text-[11px]"
-      >
-        {SOUND_IDS.map((id) => (
-          <option key={id} value={id} className="text-ink bg-paper">
-            {id}
-          </option>
-        ))}
-      </select>
+        onChange={setSoundId}
+        ariaLabel="Sound to export"
+        tone="terminal"
+        options={SOUND_IDS.map((id) => ({ id, label: id }))}
+        triggerClassName="text-paper rounded border border-white/15 bg-transparent px-1.5 py-0.5 font-mono text-[11px] transition-colors hover:bg-white/10"
+      />
     </label>
   )
 

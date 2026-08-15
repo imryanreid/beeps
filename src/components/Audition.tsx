@@ -20,6 +20,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Play } from "@phosphor-icons/react"
 import { Label } from "../shared/components/Label"
 import { cn } from "../shared/utils"
+import Picker from "./Picker"
 import { HOVER_LIFT } from "../shared/motion"
 import { PRESETS, PRESET_IDS, type PresetId } from "../lib/presets"
 import { resolve, soundingMs } from "../lib/resolve"
@@ -115,24 +116,13 @@ export default function Audition({
       </p>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <select
+        <Picker
           value={soundId}
-          onChange={(e) => onSoundId(e.target.value as SoundId)}
-          aria-label="Sound to audition"
-          className="border-line bg-paper text-ink hover:border-ink/30 h-9 appearance-none rounded-md border px-3 pr-7 font-mono text-[11px] transition-colors"
-          style={{
-            backgroundImage:
-              "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path d='M2 4l3 3 3-3' fill='none' stroke='%236b6a63' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>\")",
-            backgroundRepeat: "no-repeat",
-            backgroundPosition: "right 8px center",
-          }}
-        >
-          {SOUND_IDS.map((id) => (
-            <option key={id} value={id}>
-              {id}
-            </option>
-          ))}
-        </select>
+          onChange={onSoundId}
+          ariaLabel="Sound to audition"
+          options={SOUND_IDS.map((id) => ({ id, label: id }))}
+          triggerClassName="border-line bg-paper text-ink hover:border-ink/30 h-9 rounded-md border px-3 font-mono text-[11px] transition-colors"
+        />
 
         <button
           type="button"

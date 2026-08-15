@@ -29,7 +29,9 @@ import {
 import { Label } from "../shared/components/Label"
 import Segmented from "../shared/components/Segmented"
 import { cn } from "../shared/utils"
-import { HOVER_LIFT } from "../shared/motion"
+import Picker from "./Picker"
+import { AnimatePresence, motion } from "motion/react"
+import { HOVER_LIFT, POPOVER, POPOVER_ORIGIN } from "../shared/motion"
 import Audition from "./Audition"
 import type { Sound, SoundId } from "../lib/sounds"
 
@@ -492,21 +494,31 @@ function MenuSurface({ play }: { play: PlayFn }) {
           <PaperPlaneTilt size={12} weight="bold" />
           {open ? "Close menu" : "Open menu"}
         </button>
-        {open && (
-          <ul className="border-line mt-2 rounded-md border p-1">
-            {["Duplicate", "Rename", "Move"].map((item) => (
-              <li key={item}>
-                <button
-                  type="button"
-                  onClick={() => play("tap")}
-                  className="hover:bg-ink/[0.04] w-full rounded px-2 py-1 text-left font-mono text-[11px] transition-colors"
-                >
-                  {item}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
+        {/*
+          This one is a UI EXAMPLE, so how it opens is part of what is being
+          demonstrated. A menu that pops in instantly, inside a tool about how
+          interfaces feel, undercuts the thing on display.
+        */}
+        <AnimatePresence>
+          {open && (
+            <motion.ul
+              {...POPOVER}
+              className={cn("border-line mt-2 rounded-md border p-1", POPOVER_ORIGIN)}
+            >
+              {["Duplicate", "Rename", "Move"].map((item) => (
+                <li key={item}>
+                  <button
+                    type="button"
+                    onClick={() => play("tap")}
+                    className="hover:bg-ink/[0.04] w-full rounded px-2 py-1 text-left font-mono text-[11px] transition-colors"
+                  >
+                    {item}
+                  </button>
+                </li>
+              ))}
+            </motion.ul>
+          )}
+        </AnimatePresence>
       </div>
     </SurfaceCard>
   )
@@ -516,24 +528,13 @@ function MenuSurface({ play }: { play: PlayFn }) {
 
 function SoundSelect({ value, onChange }: { value: SoundId; onChange: (v: SoundId) => void }) {
   return (
-    <select
+    <Picker
       value={value}
-      onChange={(e) => onChange(e.target.value as SoundId)}
-      aria-label="Sound to fire"
-      className="border-line bg-paper text-ink hover:border-ink/30 h-9 appearance-none rounded-md border px-3 pr-7 font-mono text-[11px] transition-colors"
-      style={{
-        backgroundImage:
-          "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path d='M2 4l3 3 3-3' fill='none' stroke='%236b6a63' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>\")",
-        backgroundRepeat: "no-repeat",
-        backgroundPosition: "right 8px center",
-      }}
-    >
-      {SOUND_OPTIONS.map((id) => (
-        <option key={id} value={id}>
-          {id}
-        </option>
-      ))}
-    </select>
+      onChange={onChange}
+      ariaLabel="Sound to fire"
+      options={SOUND_OPTIONS.map((id) => ({ id, label: id }))}
+      triggerClassName="border-line bg-paper text-ink hover:border-ink/30 h-9 rounded-md border px-3 font-mono text-[11px] transition-colors"
+    />
   )
 }
 

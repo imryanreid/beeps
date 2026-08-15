@@ -17,6 +17,7 @@ import { useState } from "react"
 import { CaretRight, Play, Warning } from "@phosphor-icons/react"
 import { Label } from "../shared/components/Label"
 import { cn } from "../shared/utils"
+import Picker from "./Picker"
 import { HOVER_LIFT } from "../shared/motion"
 import {
   DURATION_BUDGET,
@@ -101,8 +102,8 @@ export default function SoundList({
       {showIntro && (
         <p className="text-ash mb-5 max-w-[62ch] text-sm leading-relaxed">
           Press <Play size={11} weight="fill" className="text-ink inline" /> to hear a sound, or
-          click its name to open it and change how it sounds. Every sound is derived from one base
-          frequency, so editing one keeps the rest in tune with it.
+          click its name to open it and change how it sounds. Every sound is derived from one
+          base frequency, so editing one keeps the rest in tune with it.
         </p>
       )}
 
@@ -417,24 +418,20 @@ function Editor({
             different instruments in it rather than eleven unrelated sounds.
             Picking for either half of a pair picks for both; see applyPreset.
           */}
-          <label className="flex items-center gap-1.5">
-            <span className="sr-only">Voice for {sound.id}</span>
-            <select
-              value={presetId}
-              onChange={(e) => onPreset(e.target.value as PresetId)}
-              className={cn(
-                "border-line hover:border-ink/30 rounded border bg-transparent px-2 py-1 font-mono text-[10px] tracking-[0.14em] uppercase transition-colors",
-                presetId === setPresetId ? "text-ash hover:text-ink" : "text-ink border-ink/30",
-              )}
-            >
-              {PRESET_IDS.map((id) => (
-                <option key={id} value={id}>
-                  {PRESETS[id].name.toLowerCase()}
-                  {id === setPresetId ? " (set)" : ""}
-                </option>
-              ))}
-            </select>
-          </label>
+          <Picker
+            value={presetId}
+            onChange={onPreset}
+            ariaLabel={`Voice for ${sound.id}`}
+            options={PRESET_IDS.map((id) => ({
+              id,
+              label: PRESETS[id].name.toLowerCase(),
+              note: id === setPresetId ? "(set)" : undefined,
+            }))}
+            triggerClassName={cn(
+              "border-line hover:border-ink/30 rounded border bg-transparent px-2 py-1 font-mono text-[10px] tracking-[0.14em] uppercase transition-colors",
+              presetId === setPresetId ? "text-ash hover:text-ink" : "text-ink border-ink/30",
+            )}
+          />
           <button
             type="button"
             onClick={onToggleLabels}
@@ -500,8 +497,8 @@ function Editor({
             {mirrored && (
               <p className="text-ash mt-3 text-[11px] leading-relaxed">
                 The two pitches above mirror onto{" "}
-                <span className="text-ink font-medium">{partner.id}</span>. Glide, shape and filter
-                are this sound&rsquo;s alone.
+                <span className="text-ink font-medium">{partner.id}</span>. Glide, shape and
+                filter are this sound&rsquo;s alone.
               </p>
             )}
           </Group>
