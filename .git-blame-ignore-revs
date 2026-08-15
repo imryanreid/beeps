@@ -1,0 +1,8 @@
+# Commits that only reformat. Ignored so blame points at the change that
+# actually touched a line, not the formatting pass.
+#
+# GitHub honours this file automatically. Locally:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# Format with Prettier
+e55480587223ae9df9384e74a38d8ecf8b226120
