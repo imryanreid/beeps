@@ -148,7 +148,9 @@ export function encodeConfig(config: SetConfig): string {
     //
     // It cannot collide with a field code: every code is followed by digits and
     // every preset id is pure letters, so `vcrisp` matches no field.
-    const parts = [own && own !== config.presetId ? `v${own}` : "", encoded ?? ""].filter(Boolean)
+    const parts = [own && own !== config.presetId ? `v${own}` : "", encoded ?? ""].filter(
+      Boolean,
+    )
     if (parts.length) p.set(idToKey(id), parts.join("."))
   }
 

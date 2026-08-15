@@ -190,7 +190,10 @@ describe("native export", () => {
 
 describe("the markdown reports what the set actually is", () => {
   it("flags a sound past its tier ceiling, with the number and the fix", () => {
-    const long = resolve({ presetId: "soft", deltas: { tap: { decayMs: 700, releaseMs: 300 } } })
+    const long = resolve({
+      presetId: "soft",
+      deltas: { tap: { decayMs: 700, releaseMs: 300 } },
+    })
     const md = toAgentMarkdown(long, URL_)
     expect(md).toContain("## Budget check")
     expect(md).toMatch(/`tap` is \d+ ms, past the 180 ms ceiling/)
@@ -254,7 +257,10 @@ describe("the interval column", () => {
     const md = toAgentMarkdown(warm, URL_)
     for (const l of md.split("\n").filter((x) => x.startsWith("| `"))) {
       const cell = l.split("|")[4].trim()
-      const labels = cell.split(/,\s*then\s*|\s*\+\s*/).map((x) => x.trim()).filter(Boolean)
+      const labels = cell
+        .split(/,\s*then\s*|\s*\+\s*/)
+        .map((x) => x.trim())
+        .filter(Boolean)
       expect(new Set(labels).size, cell).toBe(labels.length)
     }
   })

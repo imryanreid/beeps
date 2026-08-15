@@ -309,7 +309,9 @@ export function toAgentMarkdown(
     // edited set from a stock one is to generate the default and diff by hand.
     const voice = config?.presets?.[spec.id]
     const fields = config?.deltas?.[spec.id] ? Object.keys(config.deltas[spec.id]!).sort() : []
-    const edited = [voice ? `voice: ${voice}` : "", fields.join(", ")].filter(Boolean).join("; ")
+    const edited = [voice ? `voice: ${voice}` : "", fields.join(", ")]
+      .filter(Boolean)
+      .join("; ")
     lines.push(
       `| \`${spec.id}\` | ${spec.tier} | ${Math.round(soundingMs(sound))} | ${intervalOf(set, spec.id)} | ${edited || "—"} | ${spec.when} | ${spec.whenNot} |`,
     )

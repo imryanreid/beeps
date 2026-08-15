@@ -70,7 +70,7 @@ Three traps worth not rediscovering:
 
 - **`Label` renders a `<span>`, so vertical margins on it are inert.** Several
   labels asked for `mt-8`/`mb-3` and rendered 7px and 3px. Add `block`. Note
-  that computed style *echoes* the declared margin even when it has no layout
+  that computed style _echoes_ the declared margin even when it has no layout
   effect, so reading `marginBottom` proves nothing — measure the rendered gap.
 - **An absolutely positioned box with no horizontal anchor falls back to a
   static position skewed by the inherited `text-align`.** Tailwind's Preflight
@@ -192,7 +192,7 @@ sounds were duplicated in contour and register. It surfaced preset-by-preset
 because presets that suppress pitch legibility expose it, which is exactly
 how it would have been patched three separate times.
 
-Shapes now differ in *behaviour*: `glideShareFor` gives scoops half the glide
+Shapes now differ in _behaviour_: `glideShareFor` gives scoops half the glide
 time of a size change, so a gesture arrives early and holds where an expand
 is still moving at the end. Registers spread, and `lengthScale` lets one tier
 hold sounds of different lengths.
@@ -200,7 +200,7 @@ hold sounds of different lengths.
 **Glassy was metallic because of a change made the round before.** Raising
 its tails to 1.5/1.9 so it would "ring like a bell" doubled its spectral
 centroid between onset and decay — 988 → 2137 Hz on `tap`, where Soft moves
-761 → 834. A sound that gets *brighter as it dies* is a struck bell, and a
+761 → 834. A sound that gets _brighter as it dies_ is a struck bell, and a
 bell is metal. Partials now fade before the note: ×0.77, the most sharply
 darkening preset in the set.
 
@@ -221,7 +221,7 @@ Glassy's `delete` sounding like it belonged to a different preset.
 
 **A pair's falling member inherited the rising member's swept start as its
 landing.** That start is `to + (from − to) × sweepScale` — preset-dependent
-and generally fractional — so every falling half landed *between two notes*,
+and generally fractional — so every falling half landed _between two notes_,
 by a different amount on each preset. Measured: `receive` landed 40 cents
 sharp of a fourth on Soft, on a tritone on Minimal, and 50 cents off — a
 literal quarter-tone — on Retro.
@@ -253,14 +253,14 @@ lands exactly a twelfth above the note — 3x the fundamental — and the `19`
 layer was 2.9966x. Struck, harmonic, short. It had been a xylophone all along.
 
 That is also why three rounds of tuning kept landing on bell, then tin, then
-xylophone: every attempt adjusted the *strength* and *length* of a harmonic
+xylophone: every attempt adjusted the _strength_ and _length_ of a harmonic
 partial, and glass's whole character is that it barely has one.
 
-| | xylophone | glass |
-|---|---|---|
-| partials | strong, harmonic (3x) | weak, **inharmonic** (~2.3x) |
-| decay | fast, percussive | **long** — it rings |
-| identity | the strike | the pure, sustained fundamental |
+|          | xylophone             | glass                           |
+| -------- | --------------------- | ------------------------------- |
+| partials | strong, harmonic (3x) | weak, **inharmonic** (~2.3x)    |
+| decay    | fast, percussive      | **long** — it rings             |
+| identity | the strike            | the pure, sustained fundamental |
 
 So the preset kept its numbers and took its real name, and a new **Glassy**
 was built on the opposite recipe: one dominant sine plus a single partial at
@@ -290,7 +290,7 @@ adjusted.
 
 Three things landed, in the order they were built:
 
-**FM.** A second oscillator connected to the carrier's *frequency* rather
+**FM.** A second oscillator connected to the carrier's _frequency_ rather
 than mixed into the output. The ratio decides where sidebands fall — whole
 numbers on harmonics (body), fractional between them (struck metal, wood,
 glass). Six presets take one. Spectral flatness on `tap` roughly doubles for
@@ -300,7 +300,7 @@ which use unison and sub-harmonic ratios on purpose. Across the set flatness
 now spans 12.3×.
 
 **Space.** A short delay fed back through a lowpass, so each pass is quieter
-*and* darker. Four presets are wet, six dry. Audible time roughly doubles on
+_and_ darker. Four presets are wet, six dry. Audible time roughly doubles on
 the wet ones. Its tail counts against `DURATION_BUDGET`, and the constraint
 that binds is the **subtle** tier, not notable — `open` on Xylophone is
 barely 100 ms dry, so every room here is sized by its shortest sound.
@@ -314,10 +314,10 @@ preset's `sweepScale`. URL form: `tap=vcrisp.f720` — dot-separated, since
 **Two measurement lessons from this round**, both of which produced a wrong
 answer first:
 
-- Reverb is *energetically* tiny even when perceptually obvious. An
+- Reverb is _energetically_ tiny even when perceptually obvious. An
   energy-share metric reported the room tails at 0.0% while they were plainly
   present at −21 to −43 dB. Measure how long a sound stays above a threshold.
-- The distinctness test counted a 3.67× glide *ratio* as a difference without
+- The distinctness test counted a 3.67× glide _ratio_ as a difference without
   checking either glide was audible — 26 ms vs 7 ms is a big ratio between two
   pitch jumps. It now requires the longer glide to clear 25 ms, which
   immediately surfaced a second real collision (`tap`/`toggle.off`).
@@ -343,8 +343,8 @@ markdown, on its own live site.
 JSON-LD all said a no-JavaScript fetch returns the complete set. It does not —
 this is a client-rendered page and the served HTML is 6.3 KB of shell. All
 three were written from Ramps' pattern, and Ramps can say it because it has the
-middleware and `/api/palette`. `CLAUDE.md` warned about exactly this: *"verify
-with a real no-JavaScript fetch — a browser check proves nothing there."* The
+middleware and `/api/palette`. `CLAUDE.md` warned about exactly this: _"verify
+with a real no-JavaScript fetch — a browser check proves nothing there."_ The
 browser check passed, because in a browser the claim is true. Corrected before
 anyone read it; `llms.txt` is the one document an agent is entitled to trust
 without checking.
@@ -361,12 +361,12 @@ without checking.
 - **`middleware.ts` + `api/render.ts`** — "/" itself now carries the set, so an
   agent told "use beeps.studio" gets data from the URL it actually lands on.
   Ported from Ramps, whose comments are load-bearing: the shell is fetched
-  uncached with a per-deployment key (a CDN hit hands you the *previous*
+  uncached with a per-deployment key (a CDN hit hands you the _previous_
   build's shell — Motion shipped that), the response is checked for
   `<div id="root">` before injecting (Deployment Protection serves the SSO
   login page at 200), JSON is escaped for `<` (a `</script>` in a value ended
   the element on Ramps in production), and every head rewrite uses a replacer
-  *function* because `$&` expands after escaping runs.
+  _function_ because `$&` expands after escaping runs.
 - **`/api/sounds`** — the same data without the page, no new dependency. It exports a
   plain `GET(request)` like Ramps' `api/palette.ts`, and the resolve graph was
   already Node-clean because `src/lib` carries explicit `.js` extensions for
@@ -375,7 +375,7 @@ without checking.
   `normalizedGain`, which only exists after a real render. The endpoint omits
   that field and says why in the payload, rather than emitting a silent 1.
 - **OG card** — static 1200×630, drawn on canvas in the running app so the four
-  waveforms are the *real* rendered audio. See `scripts/build-og.md`.
+  waveforms are the _real_ rendered audio. See `scripts/build-og.md`.
 
 **The no-JavaScript claim, three times.** It was false, then true of
 `/api/sounds` only, then true of every URL — and `llms.txt`, `robots.txt` and

@@ -227,11 +227,7 @@ export function buildAgentPayload(search: string, origin: string): AgentPayload 
     lines.push("THIS LINK DID NOT ARRIVE INTACT", ...warnings.map((w) => `  ${w}`), "")
   }
   if (overBudget.length) {
-    lines.push(
-      "OUT OF BUDGET",
-      ...overBudget.map((s) => `  ${s.id}: ${s.budget.problem}`),
-      "",
-    )
+    lines.push("OUT OF BUDGET", ...overBudget.map((s) => `  ${s.id}: ${s.budget.problem}`), "")
   }
   lines.push("TIER BUDGETS")
   for (const [tier, b] of Object.entries(DURATION_BUDGET)) {
@@ -247,11 +243,15 @@ export function buildAgentPayload(search: string, origin: string): AgentPayload 
       `    length    ${s.soundingMs} ms  (${s.tier} budget ${s.budget.minMs}-${s.budget.maxMs})`,
     )
     if (s.pitchHz) {
-      lines.push(`    pitch     ${s.pitchHz.start} -> ${s.pitchHz.end} Hz over ${s.pitchHz.sweepMs} ms`)
+      lines.push(
+        `    pitch     ${s.pitchHz.start} -> ${s.pitchHz.end} Hz over ${s.pitchHz.sweepMs} ms`,
+      )
     }
     if (s.envelopeMs) {
       const e = s.envelopeMs
-      lines.push(`    envelope  a ${e.attack} / d ${e.decay} / s ${e.sustain} / r ${e.release} ms`)
+      lines.push(
+        `    envelope  a ${e.attack} / d ${e.decay} / s ${e.sustain} / r ${e.release} ms`,
+      )
     }
     lines.push(
       `    filter    ${s.filter.type} ${s.filter.cutoffHz} Hz, Q ${s.filter.q}`,

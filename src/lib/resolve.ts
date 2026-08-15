@@ -346,10 +346,7 @@ function buildVoices(
                   0,
                   LIMITS.freqHz[1],
                 ),
-                decayMs: clamp(
-                  env.decayMs * tail * (layer.fm.decay ?? 0.5),
-                  ...LIMITS.decayMs,
-                ),
+                decayMs: clamp(env.decayMs * tail * (layer.fm.decay ?? 0.5), ...LIMITS.decayMs),
               },
             }
           : {}),
@@ -399,7 +396,6 @@ function buildVoices(
 
   return voices
 }
-
 
 /**
  * Give `derived` the pitches its canonical partner implies.
@@ -456,7 +452,10 @@ function deriveFromCanonical(
         ...v,
         pitch: {
           ...v.pitch,
-          startHz: clamp(Math.max(from.pitch.startHz * onset, MIN_MUSICAL_HZ), ...LIMITS.freqHz),
+          startHz: clamp(
+            Math.max(from.pitch.startHz * onset, MIN_MUSICAL_HZ),
+            ...LIMITS.freqHz,
+          ),
           endHz: clamp(Math.max(from.pitch.endHz * landing, MIN_MUSICAL_HZ), ...LIMITS.freqHz),
         },
       }

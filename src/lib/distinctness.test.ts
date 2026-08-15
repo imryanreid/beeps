@@ -38,7 +38,9 @@ const SHAPES: Shape[] = [
 
 /** The note-carrying voices, in order. Layers above 0 are colour, not identity. */
 const notesOf = (s: Sound) =>
-  s.voices.filter((v): v is Extract<typeof v, { kind: "osc" }> => v.kind === "osc" && v.layer === 0)
+  s.voices.filter(
+    (v): v is Extract<typeof v, { kind: "osc" }> => v.kind === "osc" && v.layer === 0,
+  )
 
 /** Where the sound's energy sits, in semitones from base. */
 function centreSemitones(s: Sound, baseHz: number) {

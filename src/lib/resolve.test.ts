@@ -213,9 +213,10 @@ describe("pairs", () => {
           [p.b, b],
         ] as const) {
           const s = semis(v.pitch.endHz)
-          expect(Math.abs(s - Math.round(s)), `${presetId}/${id} landing off-grid`).toBeLessThan(
-            0.01,
-          )
+          expect(
+            Math.abs(s - Math.round(s)),
+            `${presetId}/${id} landing off-grid`,
+          ).toBeLessThan(0.01)
         }
         // ...a fixed interval apart, identical across every preset.
         expect(
@@ -345,7 +346,10 @@ describe("pairs", () => {
     // travels through two preset-dependent factors on the way there and back.
     for (const presetId of PRESET_IDS) {
       const config = applyEdit({ presetId, deltas: {} }, "close", { startHz: 900, endHz: 500 })
-      expect(config.deltas.close, `${presetId} stores nothing on the derived side`).toBeUndefined()
+      expect(
+        config.deltas.close,
+        `${presetId} stores nothing on the derived side`,
+      ).toBeUndefined()
       const close = resolve(config).sounds.find((s) => s.id === "close")!.voices[0]
       if (close.kind !== "osc") throw new Error("expected osc")
       expect(close.pitch.startHz, `${presetId} close onset`).toBeCloseTo(900, 4)

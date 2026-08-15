@@ -53,7 +53,9 @@ export function GET(request: Request): Response {
   return new Response(body, {
     status: 200,
     headers: {
-      "content-type": wantsText ? "text/plain; charset=utf-8" : "application/json; charset=utf-8",
+      "content-type": wantsText
+        ? "text/plain; charset=utf-8"
+        : "application/json; charset=utf-8",
       // Echoes URL-derived content, so never let a browser sniff it as HTML.
       "x-content-type-options": "nosniff",
       // Deterministic output, so let the CDN keep it indefinitely.

@@ -29,15 +29,7 @@
 import type { SpaceSpec, Tier, Waveform } from "./sounds.js"
 
 export type PresetId =
-  | "soft"
-  | "crisp"
-  | "minimal"
-  | "warm"
-  | "bloopy"
-  | "glassy"
-  | "playful"
-  | "retro"
-  | "scifi"
+  "soft" | "crisp" | "minimal" | "warm" | "bloopy" | "glassy" | "playful" | "retro" | "scifi"
 
 /**
  * One voice a preset adds on top of each semantic note.
@@ -252,7 +244,9 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     // body comes from the three unisons under a low cutoff instead.
     layers: [
       {
-        interval: 0, waveform: "sine", gain: 1,
+        interval: 0,
+        waveform: "sine",
+        gain: 1,
         // Unison ratio, so sidebands land on the note's own harmonics and read
         // as body rather than as a different instrument.
         fm: { ratio: 1, index: 0.7, decay: 0.9 },
@@ -284,7 +278,9 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     baseHz: 700,
     layers: [
       {
-        interval: 0, waveform: "sine", gain: 1,
+        interval: 0,
+        waveform: "sine",
+        gain: 1,
         // Half the note's frequency, putting sidebands BELOW it as well as
         // above — the underwater weight this preset is named for.
         fm: { ratio: 0.5, index: 1.6, decay: 0.7 },
@@ -341,7 +337,9 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     // preset spent three rounds escaping.
     layers: [
       {
-        interval: 0, waveform: "sine", gain: 1,
+        interval: 0,
+        waveform: "sine",
+        gain: 1,
         // 3.5 is the classic bell ratio — sidebands land BETWEEN harmonics,
         // which is what struck glass and struck metal have in common, and what
         // no arrangement of additive partials could reach.
@@ -387,7 +385,9 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     baseHz: 800,
     layers: [
       {
-        interval: 0, waveform: "triangle", gain: 1,
+        interval: 0,
+        waveform: "triangle",
+        gain: 1,
         // An octave up, harmonically, so it brightens the attack and falls
         // away — bouncy rather than metallic.
         fm: { ratio: 2, index: 1.6, decay: 0.35 },
@@ -459,7 +459,9 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     baseHz: 820,
     layers: [
       {
-        interval: 0, waveform: "sine", gain: 1,
+        interval: 0,
+        waveform: "sine",
+        gain: 1,
         // A SINE carrier, which is not a detail — it is the whole reason this
         // stopped being crunchy. FM's clean sideband structure assumes one: a
         // sawtooth already contains every harmonic, so each one spawns its own

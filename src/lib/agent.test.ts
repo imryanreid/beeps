@@ -114,7 +114,9 @@ describe("resolved values, not just measurements", () => {
       const lo = Math.min(s.pitchHz.start, s.pitchHz.end)
       const hi = Math.max(s.pitchHz.start, s.pitchHz.end)
       expect(s.frequencyHz.min, `${s.id} span should contain the sweep`).toBeLessThanOrEqual(lo)
-      expect(s.frequencyHz.max, `${s.id} span should contain the sweep`).toBeGreaterThanOrEqual(hi)
+      expect(s.frequencyHz.max, `${s.id} span should contain the sweep`).toBeGreaterThanOrEqual(
+        hi,
+      )
       if (s.frequencyHz.min < lo || s.frequencyHz.max > hi) anyWider = true
     }
     expect(anyWider, "at least one layered sound spans wider than its primary voice").toBe(true)

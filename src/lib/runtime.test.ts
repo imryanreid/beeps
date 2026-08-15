@@ -409,7 +409,10 @@ describe("frequency modulation", () => {
     const s = resolve({ presetId: fmPreset, deltas: {} }).sounds.find((x) => x.id === "send")!
     const v = s.voices.find((x) => x.kind === "osc" && x.fm)
     if (!v || v.kind !== "osc" || !v.fm) throw new Error("expected an FM voice")
-    expect(v.fm.pitch.startHz / v.pitch.startHz).toBeCloseTo(v.fm.pitch.endHz / v.pitch.endHz, 6)
+    expect(v.fm.pitch.startHz / v.pitch.startHz).toBeCloseTo(
+      v.fm.pitch.endHz / v.pitch.endHz,
+      6,
+    )
     expect(v.fm.pitch.sweepMs).toBe(v.pitch.sweepMs)
   })
 
@@ -470,7 +473,9 @@ describe("space", () => {
     for (const id of PRESET_IDS) {
       for (const s of resolve({ presetId: id, deltas: {} }).sounds) {
         const dry = Math.max(
-          ...s.voices.map((v) => v.startOffsetMs + envelopeSegments(v.env, s.durationMs).totalMs),
+          ...s.voices.map(
+            (v) => v.startOffsetMs + envelopeSegments(v.env, s.durationMs).totalMs,
+          ),
         )
         expect(soundingMs(s) - dry, `${id}/${s.id}`).toBeCloseTo(spaceTailMs(s.space), 6)
       }

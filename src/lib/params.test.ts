@@ -337,7 +337,11 @@ describe("per-sound presets in the URL", () => {
   })
 
   it("stores nothing when the choice matches the set", () => {
-    const config = applyPreset(applyPreset(DEFAULT_CONFIG, "tap", "crisp"), "tap", DEFAULT_PRESET)
+    const config = applyPreset(
+      applyPreset(DEFAULT_CONFIG, "tap", "crisp"),
+      "tap",
+      DEFAULT_PRESET,
+    )
     expect(config.presets).toBeUndefined()
     expect(encodeConfig(config)).toBe("")
   })
