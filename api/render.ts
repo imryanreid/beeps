@@ -71,12 +71,25 @@ export async function GET(request: Request): Promise<Response> {
   // JavaScript no longer existed, which looks fine to an agent and is
   // completely broken for a person.
   //
-  // Two defences because one is only a hint: cache "no-store" asks, and the
-  // per-deployment query key guarantees a distinct cache entry even if the ask
-  // is ignored. A query string doesn't change which static file resolves.
+  // This used to add a per-deployment `__build` query key and describe it as a
+  // guarantee behind `no-store`'s hint. IT WAS NEVER A GUARANTEE. Vercel does
+  // not key static-asset cache entries on the query string: three requests
+  // with different random `__build` values, and one with none at all, all came
+  // back `x-vercel-cache: HIT` with an identical `age` — the same single entry
+  // every time. The key bought nothing while making a false promise, which is
+  // worse than an honest single defence.
+  //
+  // So: two asks that actually reach different layers. `cache: "no-store"` is
+  // the fetch API's own cache mode; `cache-control: no-cache` is a request
+  // header any intermediary is expected to honour. Both are still requests
+  // rather than guarantees.
+  //
+  // For a real guarantee the options are fetching the shell from the
+  // per-deployment host (`VERCEL_URL`) instead of the alias, or reading it off
+  // disk rather than over HTTP. The first is not taken because deployment
+  // hosts are SSO-gated when Deployment Protection is on — the exact failure
+  // the guard below already exists to catch.
   const shellUrl = new URL("/index.html", url.origin)
-  const build = process.env.VERCEL_DEPLOYMENT_ID ?? process.env.VERCEL_GIT_COMMIT_SHA
-  if (build) shellUrl.searchParams.set("__build", build)
 
   // Bounded, with one retry. Without a timeout a hung fetch holds a compute
   // concurrency slot until the platform default — unbilled I/O wait, but slots
@@ -85,7 +98,7 @@ export async function GET(request: Request): Promise<Response> {
     fetch(shellUrl, {
       signal: AbortSignal.timeout(3000),
       cache: "no-store",
-      headers: { "user-agent": "beeps-render" },
+      headers: { "user-agent": "beeps-render", "cache-control": "no-cache" },
     })
 
   let shell: Response
