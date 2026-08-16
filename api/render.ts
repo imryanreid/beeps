@@ -190,12 +190,18 @@ export async function GET(request: Request): Promise<Response> {
   // ships visible and src/main.tsx removes it once React mounts, so only
   // JS-less readers ever see it. It sits below the app, outside #root, so
   // hydration never touches it.
+  // The one style this block may carry, and it is not a hiding style. A bare
+  // <pre> is `white-space: pre`, so a long payload line lays out far wider than
+  // a phone viewport and the document goes with it until this block is removed,
+  // leaving a phone scrolled sideways into empty space. Wrapping costs nothing:
+  // the text stays fully present and fully extractable, which is the property
+  // the comment above is protecting. `display:none` is still forbidden.
   const injected = `
 <div id="agent-sounds">
 <script type="application/json" id="beeps-sound-set">
 ${jsonForScript(json)}
 </script>
-<pre>
+<pre style="white-space:pre-wrap;word-break:break-word">
 ${escapeHtml(text)}
 </pre>
 </div>`
