@@ -180,7 +180,7 @@ limit. Generated from the shared manifest — see `src/shared/tools.ts`.
 <!-- FAMILY:START format="list" current="sound" -->
   Ramps    Color scales & semantic tokens  https://www.ramps.studio/
   Springs  Motion, easings & durations     https://www.springs.studio/
-  Depths   Elevation & shadows             not yet released
+  Depths   Elevation & shadows             https://www.depths.studio/
   Texts    Type styles & scaling           not yet released
   SVGs     Icon cleanup & alignment        not yet released
 <!-- FAMILY:END -->
